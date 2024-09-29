@@ -1,0 +1,14 @@
+{
+  "appId": "qr.code",
+  "appName": "qr-code",
+  "webDir": "dist",
+  "server": {
+    "cleartext": true,
+    "allowNavigation": [
+      "https://farm-managment-app.onrender.com",
+      "http://localhost:8100",
+      "capacitor://localhost",
+      "ionic://localhost"
+    ]
+  }
+}
