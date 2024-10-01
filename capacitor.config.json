@@ -1,7 +1,8 @@
 {
   "appId": "qr.code",
-  "appName": "qr-code",
+  "appName": "Glen Oak",
   "webDir": "dist",
+  "resourcesPath": "resources",
   "server": {
     "cleartext": true,
     "allowNavigation": [

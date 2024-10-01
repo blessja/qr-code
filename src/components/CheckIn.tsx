@@ -24,6 +24,7 @@ import Footer from "./Footer";
 import { useHistory } from "react-router-dom";
 import "./Checkin.css";
 import QRScanner from "../components/QrScanner";
+import { notifySuccess, notifyError } from "../utils/notify";
 
 const CheckIn: React.FC = () => {
   const [workerName, setWorkerName] = useState("");
@@ -82,7 +83,7 @@ const CheckIn: React.FC = () => {
     if (!workerID || !workerName || !blockName || rowNumber === null) {
       setAlertMessage("Please provide all required information.");
       setShowAlert(true);
-      return;
+      return notifyError("Please fill all the fields");
     }
 
     try {

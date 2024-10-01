@@ -50,7 +50,7 @@ const Dashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         const response = await axios.get(
-          "http://192.168.0.103:5000/api/workers"
+          "https://farm-managment-app.onrender.com/api/workers"
         );
         setWorkersData(response.data);
       } catch (error) {
@@ -99,16 +99,31 @@ const Dashboard: React.FC = () => {
 
         workerDataByDate[dateKey].total_stock_count += row.stock_count;
 
-        // Avoid duplicates in block names
-        if (!workerDataByDate[dateKey].block_names.includes(block.block_name)) {
-          workerDataByDate[dateKey].block_names += `${block.block_name}, `;
-        }
+        // Group row numbers by block
+        const blockRowData = `${block.block_name} ${row.row_number}`;
 
-        workerDataByDate[dateKey].row_numbers += `${row.row_number}, `;
+        // If the current block is already in the block_names, just append the row number
+        const blockIndex = workerDataByDate[dateKey].block_names.indexOf(
+          block.block_name
+        );
+
+        if (blockIndex === -1) {
+          // If block is not in the list, add both the block name and row
+          workerDataByDate[
+            dateKey
+          ].block_names += `${block.block_name} ${row.row_number}, `;
+        } else {
+          // If block already exists, append the row number after the block
+          workerDataByDate[dateKey].block_names = workerDataByDate[
+            dateKey
+          ].block_names.replace(
+            `${block.block_name}`,
+            `${block.block_name} ${workerDataByDate[dateKey].row_numbers}, ${row.row_number}`
+          );
+        }
       });
     });
 
-    // Add aggregated data to the accumulator
     acc.push(...Object.values(workerDataByDate));
     return acc;
   }, [] as AggregatedData[]);
@@ -200,13 +215,9 @@ const Dashboard: React.FC = () => {
                 {data.total_stock_count}
               </IonCol>
               <IonCol className="centered-col-2">
-                {data.block_names.slice(0, -2)}
-              </IonCol>{" "}
-              {/* Remove trailing comma */}
-              <IonCol className="centered-col-2">
-                {data.row_numbers.slice(0, -2)}
-              </IonCol>{" "}
-              {/* Remove trailing comma */}
+                {data.block_names.slice(0, -2)}{" "}
+                {/* This will now show Block + Rows like "Block 1 5A, 6A" */}
+              </IonCol>
               <IonCol className="centered-col-2">{data.date}</IonCol>
             </IonRow>
           ))}
