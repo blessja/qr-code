@@ -198,11 +198,9 @@ const Dashboard: React.FC = () => {
               <IonLabel>Total Stock Count</IonLabel>
             </IonCol>
             <IonCol className="centered-col">
-              <IonLabel>Blocks</IonLabel>
+              <IonLabel>Blocks & Rows</IonLabel>
             </IonCol>
-            <IonCol className="centered-col">
-              <IonLabel>Rows</IonLabel>
-            </IonCol>
+
             <IonCol className="centered-col">
               <IonLabel>Date</IonLabel>
             </IonCol>
