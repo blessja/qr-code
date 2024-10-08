@@ -254,7 +254,7 @@ const CheckOut: React.FC = () => {
           variant="contained"
           color="primary"
           sx={{ mr: 2, mt: 2, ml: 2 }}
-          onClick={() => history.push("/home")}
+          onClick={() => history.push("/piecework_1")}
         >
           Back
         </Button>
@@ -273,8 +273,8 @@ const CheckOut: React.FC = () => {
           message="Check-out successful!"
           duration={2000}
         />
-        <Footer />
       </IonContent>
+      <Footer />
     </IonPage>
   );
 };

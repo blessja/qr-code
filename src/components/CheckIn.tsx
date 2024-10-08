@@ -214,7 +214,7 @@ const CheckIn: React.FC = () => {
           variant="contained"
           color="primary"
           sx={{ mr: 2, mt: 2, ml: 2 }}
-          onClick={() => history.push("/home")}
+          onClick={() => history.push("/piecework_1")}
         >
           Back
         </Button>

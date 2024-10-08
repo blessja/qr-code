@@ -5,6 +5,9 @@ import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import CheckIn from "./components/CheckIn";
 import CheckOut from "./components/CheckOut";
+import PieceWork from "./components/PieceWork_1";
+import PieceWork_2 from "./components/PieceWork_2";
+import Register from "./components/Register";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
@@ -45,6 +48,15 @@ const App: React.FC = () => (
         </Route>
         <Route exact path="/checkout">
           <CheckOut />
+        </Route>
+        <Route exact path="/piecework_1">
+          <PieceWork />
+        </Route>
+        <Route exact path="/piecework-2">
+          <PieceWork_2 />
+        </Route>
+        <Route exact path="/register">
+          <Register />
         </Route>
       </IonRouterOutlet>
     </IonReactRouter>

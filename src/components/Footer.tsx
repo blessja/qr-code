@@ -9,8 +9,8 @@ const Footer: React.FC = () => {
         backgroundColor: "#333",
         color: "white",
         textAlign: "center",
-        // padding: "20px 0",
-        position: "fixed",
+        padding: "30px 0",
+        // position: "fixed",
         bottom: 0,
         width: "100%",
       }}

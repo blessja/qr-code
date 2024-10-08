@@ -5,6 +5,7 @@ import { isPlatform } from "@ionic/react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ExploreContainer from "../components/ExploreContainer";
+import Cards from "../components/Cards";
 
 const Home: React.FC = () => {
   useEffect(() => {
@@ -32,7 +33,8 @@ const Home: React.FC = () => {
     <IonPage>
       <IonContent>
         <Header />
-        <ExploreContainer />
+        <Cards />
+        {/* <ExploreContainer /> */}
         <Footer />
       </IonContent>
     </IonPage>
