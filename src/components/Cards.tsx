@@ -31,7 +31,7 @@ const Cards = () => {
   });
 
   return (
-    <IonContent>
+    <IonContent style={{ marginTop: "40px" }}>
       <IonGrid>
         {/* Piece Work Day Card */}
         <IonRow>

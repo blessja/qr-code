@@ -4,7 +4,7 @@ import { IonHeader, IonToolbar, IonTitle } from "@ionic/react";
 
 const Header: React.FC = () => {
   return (
-    <IonHeader>
+    <IonHeader style={{ position: "" }}>
       <IonToolbar>
         <IonTitle>
           Glen Oak ||{" "}
