@@ -8,6 +8,8 @@ import {
   IonCol,
   IonText,
 } from "@ionic/react";
+import { IonIcon } from "@ionic/react";
+import { checkmarkCircleOutline } from "ionicons/icons";
 import { useHistory } from "react-router-dom"; // Use history from react-router-dom
 
 import "./Cards.css";
@@ -18,6 +20,15 @@ const Cards = () => {
   const goToDetails = (path: string) => {
     history.push(path); // Push the desired path when the card is clicked
   };
+
+  const currentDateTime = new Date().toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: undefined, // Exclude seconds
+  });
 
   return (
     <IonContent>
@@ -42,8 +53,12 @@ const Cards = () => {
                   </IonCardTitle>
                 </IonCardHeader>
                 <div className="info">
-                  <IonText className="temp">6°</IonText>
+                  <IonText className="temp">
+                    {" "}
+                    <IonIcon icon={checkmarkCircleOutline} />
+                  </IonText>
                 </div>
+                <IonText className="small-text">{currentDateTime}</IonText>
               </div>
             </IonCard>
           </IonCol>
@@ -69,8 +84,11 @@ const Cards = () => {
                   </IonCardTitle>
                 </IonCardHeader>
                 <div className="info">
-                  <IonText className="temp">20°</IonText>
+                  <IonText className="temp">
+                    <IonIcon icon={checkmarkCircleOutline} />
+                  </IonText>
                 </div>
+                <IonText className="small-text">{currentDateTime}</IonText>
               </div>
             </IonCard>
           </IonCol>
@@ -96,8 +114,11 @@ const Cards = () => {
                   </IonCardTitle>
                 </IonCardHeader>
                 <div className="info">
-                  <IonText className="temp">-13°</IonText>
+                  <IonText className="temp">
+                    <IonIcon icon={checkmarkCircleOutline} />
+                  </IonText>
                 </div>
+                <IonText className="small-text">{currentDateTime}</IonText>
               </div>
             </IonCard>
           </IonCol>
