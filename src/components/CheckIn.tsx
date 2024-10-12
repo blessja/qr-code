@@ -1,4 +1,3 @@
-// CheckIn.tsx
 import React, { useState, useEffect } from "react";
 import {
   IonButton,
@@ -22,9 +21,9 @@ import {
 import Header from "./Header";
 import Footer from "./Footer";
 import { useHistory } from "react-router-dom";
-import "./Checkin.css";
 import QRScanner from "../components/QrScanner";
 import { notifySuccess, notifyError } from "../utils/notify";
+import "./Checkin.css";
 
 const CheckIn: React.FC = () => {
   const [workerName, setWorkerName] = useState("");
@@ -33,6 +32,7 @@ const CheckIn: React.FC = () => {
   const [rowNumber, setRowNumber] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<string[]>([]);
   const [rows, setRows] = useState<string[]>([]);
+  const [checkedInRows, setCheckedInRows] = useState<string[]>([]); // Track checked-in rows
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
@@ -40,32 +40,39 @@ const CheckIn: React.FC = () => {
   const history = useHistory();
 
   // Fetch block names when component mounts
-  // Fetch block names with error handling
   useEffect(() => {
     fetch("https://farm-managment-app.onrender.com/api/blocks")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.json();
-      })
+      .then((response) => response.json())
       .then((data) => setBlocks(data))
       .catch((error) => {
-        console.error("Error fetching blocks:", error);
         setAlertMessage(`Error fetching blocks: ${error.message}`);
         setShowAlert(true);
       });
   }, []);
 
-  // Fetch rows for the selected block
+  // Fetch rows for the selected block and also get currently checked-in rows
   useEffect(() => {
     if (blockName) {
       fetch(
         `https://farm-managment-app.onrender.com/api/block/${blockName}/rows`
       )
         .then((response) => response.json())
-        .then((data) => setRows(data))
+        .then((data) => {
+          setRows(data);
+        })
         .catch((error) => console.error("Error fetching rows:", error));
+
+      // Fetch checked-in rows for the selected block
+      fetch(
+        `https://farm-managment-app.onrender.com/api/block/${blockName}/checked-in-rows`
+      )
+        .then((response) => response.json())
+        .then((checkedInData) => {
+          setCheckedInRows(checkedInData);
+        })
+        .catch((error) =>
+          console.error("Error fetching checked-in rows:", error)
+        );
     }
   }, [blockName]);
 
@@ -76,8 +83,10 @@ const CheckIn: React.FC = () => {
   }) => {
     setWorkerName(workerData.workerName);
     setWorkerID(workerData.workerID);
-    console.log("Worker data parsed and set:", workerData);
   };
+
+  // Filter out rows that are currently checked in
+  const availableRows = rows.filter((row) => !checkedInRows.includes(row));
 
   const handleCheckIn = async () => {
     if (!workerID || !workerName || !blockName || rowNumber === null) {
@@ -100,9 +109,9 @@ const CheckIn: React.FC = () => {
         const data = await response.json();
         console.log("Check-in successful:", data);
         setShowToast(true);
+        setCheckedInRows((prev) => [...prev, rowNumber]); // Add row to checked-in rows
         setWorkerName("");
         setWorkerID("");
-        setBlockName("");
         setRowNumber(null);
       } else {
         const errorData = await response.json();
@@ -192,7 +201,7 @@ const CheckIn: React.FC = () => {
               <MenuItem value="">
                 <em>Select Row</em>
               </MenuItem>
-              {rows.map((row) => (
+              {availableRows.map((row) => (
                 <MenuItem key={row} value={row}>
                   {row}
                 </MenuItem>
@@ -219,6 +228,7 @@ const CheckIn: React.FC = () => {
           Back
         </Button>
       </IonContent>
+
       {/* IonAlert for Error Messages */}
       <IonAlert
         isOpen={showAlert}

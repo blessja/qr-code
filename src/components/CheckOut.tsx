@@ -42,6 +42,7 @@ const CheckOut: React.FC = () => {
       .then((response) => response.json())
       .then((data) => {
         setBlocks(data);
+        console.log("Fetched blocks:", data);
       })
       .catch((error) => console.error("Error fetching blocks:", error));
   }, []);
@@ -54,19 +55,53 @@ const CheckOut: React.FC = () => {
         .then((response) => response.json())
         .then((data) => {
           setRows(data);
+          console.log("Fetched rows for block", blockName, ":", data);
         })
         .catch((error) => console.error("Error fetching rows:", error));
     }
   }, [blockName]);
 
-  const handleScanSuccess = (workerData: {
+  const handleScanSuccess = async (workerData: {
     workerName: string;
     workerID: string;
   }) => {
     setWorkerName(workerData.workerName);
     setWorkerID(workerData.workerID);
-    console.log("Worker data parsed and set:", workerData); // Check if workerData is valid
+    console.log("Worker data parsed and set:", workerData);
+
+    // Fetch the check-in details to prefill blockName, rowNumber, and stockCount
+    try {
+      const response = await fetch(
+        `https://farm-managment-app.onrender.com/api/worker/${workerData.workerID}/current-checkin`
+      );
+      if (response.ok) {
+        const data = await response.json();
+
+        if (Array.isArray(data) && data.length > 0) {
+          const checkinData = data[0]; // Access the first object in the array
+
+          // Log each field to confirm you received the right data
+          console.log("Fetched blockName:", checkinData.blockName);
+          console.log("Fetched rowNumber:", checkinData.rowNumber);
+          console.log("Fetched stockCount:", checkinData.stockCount);
+
+          // Populate the form fields
+          setBlockName(checkinData.blockName);
+          setRowNumber(checkinData.rowNumber);
+          setStockCount(checkinData.stockCount);
+
+          console.log("Form populated with fetched data:", checkinData);
+        } else {
+          console.error("No check-in data found for the worker.");
+        }
+      } else {
+        console.error("Failed to fetch check-in details");
+      }
+    } catch (error) {
+      console.error("Error fetching check-in details:", error);
+    }
   };
+
   const handleScanFailure = (error: string) => {
     console.error("Error parsing QR code:", error);
   };
@@ -87,6 +122,11 @@ const CheckOut: React.FC = () => {
       return;
     }
 
+    // Use the remaining stocks if stockCount is not provided
+    const finalStockCount =
+      stockCount ||
+      (await getRemainingStocks(workerID as string, rowNumber as string));
+
     try {
       const response = await fetch(
         "https://farm-managment-app.onrender.com/api/checkout",
@@ -95,10 +135,10 @@ const CheckOut: React.FC = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             workerID,
-            workerName, // Add this to match the Postman request
+            workerName,
             blockName,
             rowNumber,
-            stockCount,
+            stockCount: finalStockCount,
           }),
         }
       );
@@ -125,6 +165,27 @@ const CheckOut: React.FC = () => {
     }
   };
 
+  // Helper function to get remaining stocks if stockCount is not entered
+  const getRemainingStocks = async (
+    workerID: string,
+    rowNumber: string
+  ): Promise<number> => {
+    try {
+      const response = await fetch(
+        `https://farm-managment-app.onrender.com/api/worker/${workerID}/row/${rowNumber}/remaining-stocks`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        return data.remainingStocks; // Return the remaining stocks
+      } else {
+        throw new Error("Failed to fetch remaining stocks");
+      }
+    } catch (error) {
+      console.error(error);
+      return 0; // Default to 0 if there's an issue fetching the data
+    }
+  };
+
   const history = useHistory();
   return (
     <IonPage>
@@ -145,7 +206,6 @@ const CheckOut: React.FC = () => {
           <IonCardContent>
             <p>Please select the block number and row number</p>
           </IonCardContent>
-
           <FormControl
             variant="outlined"
             style={{ width: "100%", padding: "10px 20px" }}
@@ -162,7 +222,7 @@ const CheckOut: React.FC = () => {
             </InputLabel>
             <Select
               labelId="block-label"
-              value={blockName}
+              value={blockName} // This should correctly reflect the fetched blockName
               onChange={(e) => {
                 setBlockName(e.target.value);
                 console.log("Block selected:", e.target.value);
@@ -197,7 +257,7 @@ const CheckOut: React.FC = () => {
             </InputLabel>
             <Select
               labelId="row-label"
-              value={rowNumber || ""}
+              value={rowNumber || ""} // Ensure this reflects the fetched rowNumber
               onChange={(e) => {
                 setRowNumber(e.target.value);
                 console.log("Row selected:", e.target.value);
@@ -231,7 +291,7 @@ const CheckOut: React.FC = () => {
             </InputLabel>
             <Input
               id="stock-count"
-              value={stockCount || ""}
+              value={stockCount || ""} // This should correctly reflect the fetched stockCount
               onChange={(e) => {
                 const value = e.target.value ? parseInt(e.target.value) : null;
                 setStockCount(value);
