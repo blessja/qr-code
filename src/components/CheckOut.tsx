@@ -88,7 +88,9 @@ const CheckOut: React.FC = () => {
           // Populate the form fields
           setBlockName(checkinData.blockName);
           setRowNumber(checkinData.rowNumber);
-          setStockCount(checkinData.stockCount);
+
+          // Set the stock count based on the remaining stock count if available
+          setStockCount(checkinData.remainingStocks || checkinData.stockCount);
 
           console.log("Form populated with fetched data:", checkinData);
         } else {
@@ -154,7 +156,11 @@ const CheckOut: React.FC = () => {
         setStockCount(null);
       } else {
         const errorData = await response.json();
-        console.error("Checkout error response:", errorData);
+        console.error(
+          "Checkout error response:",
+          JSON.stringify(errorData, null, 2)
+        );
+
         setAlertMessage(`Check-out failed: ${errorData.message}`);
         setShowAlert(true);
       }
@@ -176,6 +182,7 @@ const CheckOut: React.FC = () => {
       );
       if (response.ok) {
         const data = await response.json();
+        console.log("Fetched remaining stocks:", data.remainingStocks);
         return data.remainingStocks; // Return the remaining stocks
       } else {
         throw new Error("Failed to fetch remaining stocks");
@@ -310,14 +317,24 @@ const CheckOut: React.FC = () => {
             Check Out
           </IonButton>
         </IonCard>
-        <Button
-          variant="contained"
-          color="primary"
-          sx={{ mr: 2, mt: 2, ml: 2 }}
-          onClick={() => history.push("/piecework_1")}
-        >
-          Back
-        </Button>
+        <div className="btns">
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{ mr: 2, mt: 2, ml: 2 }}
+            onClick={() => history.push("/piecework_1")}
+          >
+            Back
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            sx={{ mr: 2, mt: 2, ml: 2 }}
+            onClick={() => history.push("/checkin")}
+          >
+            Check-in
+          </Button>
+        </div>
         <IonAlert
           isOpen={showAlert}
           onDidDismiss={() => setShowAlert(false)}

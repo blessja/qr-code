@@ -231,7 +231,7 @@ const Dashboard: React.FC = () => {
         <IonButton
           style={{ marginTop: "30px" }}
           expand="block"
-          onClick={() => history.push("/")}
+          onClick={() => history.push("/piecework_1")}
         >
           Go to Home
         </IonButton>

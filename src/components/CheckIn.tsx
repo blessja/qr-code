@@ -217,16 +217,25 @@ const CheckIn: React.FC = () => {
             Check In
           </IonButton>
         </IonCard>
-        <div id="main"></div>
+        <div className="btns">
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{ mr: 2, mt: 2, ml: 2 }}
+            onClick={() => history.push("/piecework_1")}
+          >
+            Back
+          </Button>
 
-        <Button
-          variant="contained"
-          color="primary"
-          sx={{ mr: 2, mt: 2, ml: 2 }}
-          onClick={() => history.push("/piecework_1")}
-        >
-          Back
-        </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            sx={{ mr: 2, mt: 2, ml: 2 }}
+            onClick={() => history.push("/checkout")}
+          >
+            checkout
+          </Button>
+        </div>
       </IonContent>
 
       {/* IonAlert for Error Messages */}

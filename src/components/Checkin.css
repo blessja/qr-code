@@ -38,3 +38,10 @@
 .main {
   height: 100vh;
 }
+
+.btns {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
