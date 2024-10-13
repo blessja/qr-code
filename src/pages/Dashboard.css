@@ -8,3 +8,73 @@
 .centered-col-2 {
   text-align: center;
 }
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.pagination button {
+  margin: 0 5px;
+  padding: 5px 10px;
+  border: none;
+  background-color: #3880ff;
+  color: white;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.pagination button.active {
+  background-color: #0056b3;
+}
+
+.centered-col,
+.centered-col-2 {
+  text-align: center;
+  padding: 10px;
+  border: 1px solid #ccc; /* Adds the grid lines */
+}
+
+IonRow {
+  border-bottom: 1px solid #ccc; /* Horizontal grid lines */
+}
+
+IonCol {
+  border-right: 1px solid #ccc; /* Vertical grid lines */
+}
+
+IonCol:last-child {
+  border-right: none; /* No border on the last column */
+}
+
+IonRow:last-child {
+  border-bottom: none; /* No border on the last row */
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.pagination button {
+  margin: 0 5px;
+  padding: 8px 16px;
+  border: none;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+}
+
+.pagination button.active {
+  background-color: #0056b3;
+}
+
+.pagination button[disabled] {
+  background-color: #ccc;
+  cursor: not-allowed;
+}

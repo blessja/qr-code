@@ -10,17 +10,17 @@ import {
   IonLabel,
   IonButton,
   IonGrid,
+  IonInput,
 } from "@ionic/react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import "./Dashboard.css";
 import { useHistory } from "react-router-dom";
 
-// Define TypeScript interfaces for your data structure
 interface Row {
   row_number: string;
   stock_count: number;
-  date: string; // or Date if you prefer to use Date objects directly
+  date: string;
 }
 
 interface Block {
@@ -43,8 +43,44 @@ interface AggregatedData {
   row_numbers: string;
 }
 
+const Pagination: React.FC<{
+  totalPages: number;
+  currentPage: number;
+  onPageChange: (page: number) => void;
+}> = ({ totalPages, currentPage, onPageChange }) => {
+  return (
+    <div className="pagination">
+      <button
+        disabled={currentPage === 1}
+        onClick={() => onPageChange(currentPage - 1)}
+      >
+        Previous
+      </button>
+      {Array.from({ length: totalPages }, (_, index) => (
+        <button
+          key={index}
+          onClick={() => onPageChange(index + 1)}
+          className={currentPage === index + 1 ? "active" : ""}
+        >
+          {index + 1}
+        </button>
+      ))}
+      <button
+        disabled={currentPage === totalPages}
+        onClick={() => onPageChange(currentPage + 1)}
+      >
+        Next
+      </button>
+    </div>
+  );
+};
+
 const Dashboard: React.FC = () => {
   const [workersData, setWorkersData] = useState<Worker[]>([]);
+  const [filteredData, setFilteredData] = useState<AggregatedData[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -54,128 +90,99 @@ const Dashboard: React.FC = () => {
         );
         setWorkersData(response.data);
       } catch (error) {
-        if (axios.isAxiosError(error)) {
-          // If error is an AxiosError, it has a response property
-          console.error(
-            "Error fetching data:",
-            error.response ? error.response.data : error.message
-          );
-        } else if (error instanceof Error) {
-          // If error is a general Error object
-          console.error("Error fetching data:", error.message);
-        } else {
-          // For unexpected error types
-          console.error("An unexpected error occurred:", error);
-        }
+        console.error("Error fetching data:", error);
       }
     };
 
     fetchData();
   }, []);
 
-  // Aggregate the data by worker and date
-  const aggregatedData: AggregatedData[] = workersData.reduce((acc, worker) => {
-    const workerDataByDate: { [key: string]: AggregatedData } = {};
+  useEffect(() => {
+    const aggregateData = () => {
+      const aggregatedData: AggregatedData[] = workersData.reduce(
+        (acc, worker) => {
+          const workerDataByDate: { [key: string]: AggregatedData } = {};
 
-    worker.blocks.forEach((block) => {
-      block.rows.forEach((row) => {
-        const dateKey = new Date(row.date).toLocaleDateString("en-GB", {
-          weekday: "short",
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        });
+          worker.blocks.forEach((block) => {
+            block.rows.forEach((row) => {
+              const dateKey = new Date(row.date).toLocaleDateString("en-GB", {
+                weekday: "short",
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              });
 
-        if (!workerDataByDate[dateKey]) {
-          workerDataByDate[dateKey] = {
-            workerID: worker.workerID,
-            name: worker.name,
-            total_stock_count: 0,
-            date: dateKey,
-            block_names: "",
-            row_numbers: "",
-          };
-        }
+              if (!workerDataByDate[dateKey]) {
+                workerDataByDate[dateKey] = {
+                  workerID: worker.workerID,
+                  name: worker.name,
+                  total_stock_count: 0,
+                  date: dateKey,
+                  block_names: "",
+                  row_numbers: "",
+                };
+              }
 
-        workerDataByDate[dateKey].total_stock_count += row.stock_count;
+              workerDataByDate[dateKey].total_stock_count += row.stock_count;
+              workerDataByDate[dateKey].block_names += `${block.block_name} `;
+              workerDataByDate[dateKey].row_numbers += `${row.row_number}, `;
+            });
+          });
 
-        // Group row numbers by block
-        const blockRowData = `${block.block_name} ${row.row_number}`;
+          acc.push(...Object.values(workerDataByDate));
+          return acc;
+        },
+        [] as AggregatedData[]
+      );
 
-        // If the current block is already in the block_names, just append the row number
-        const blockIndex = workerDataByDate[dateKey].block_names.indexOf(
-          block.block_name
-        );
+      setFilteredData(aggregatedData);
+    };
 
-        if (blockIndex === -1) {
-          // If block is not in the list, add both the block name and row
-          workerDataByDate[
-            dateKey
-          ].block_names += `${block.block_name} ${row.row_number}, `;
-        } else {
-          // If block already exists, append the row number after the block
-          workerDataByDate[dateKey].block_names = workerDataByDate[
-            dateKey
-          ].block_names.replace(
-            `${block.block_name}`,
-            `${block.block_name} ${workerDataByDate[dateKey].row_numbers}, ${row.row_number}`
-          );
-        }
-      });
+    aggregateData();
+  }, [workersData]);
+
+  const handleSearch = (e: any) => {
+    const value = e.target.value!.toLowerCase();
+    setSearchTerm(value);
+
+    // Check if the search term contains both block and row information
+    const match = value.match(/block\s*(\d+)\s*([\w\d]+)/i);
+    const block = match ? match[1].toLowerCase() : "";
+    const row = match ? match[2].toLowerCase() : "";
+
+    const filtered = filteredData.filter((data) => {
+      const blockInData = data.block_names
+        .toLowerCase()
+        .includes(`block ${block}`);
+      const rowInData = data.row_numbers.toLowerCase().includes(row);
+
+      return block && row ? blockInData && rowInData : blockInData || rowInData;
     });
 
-    acc.push(...Object.values(workerDataByDate));
-    return acc;
-  }, [] as AggregatedData[]);
+    setFilteredData(filtered);
+  };
 
   const exportToExcel = () => {
-    // Prepare the data for Excel
-    const exportData = aggregatedData.map((data) => ({
+    const exportData = filteredData.map((data) => ({
       WorkerID: data.workerID,
       WorkerName: data.name,
       TotalStockCount: data.total_stock_count,
-      Blocks: data.block_names.slice(0, -2), // Remove trailing comma
-      Rows: data.row_numbers.slice(0, -2), // Remove trailing comma
+      Blocks: data.block_names.slice(0, -2),
       Date: data.date,
     }));
 
-    // Convert data to a worksheet
     const worksheet = XLSX.utils.json_to_sheet(exportData);
-
-    // Set column widths
-    worksheet["!cols"] = [
-      { wch: 12 },
-      { wch: 20 },
-      { wch: 15 },
-      { wch: 20 },
-      { wch: 20 },
-      { wch: 20 },
-    ];
-
-    // Center-align the values in each cell
-    const range = XLSX.utils.decode_range(worksheet["!ref"]!);
-    for (let rowNum = range.s.r; rowNum <= range.e.r; rowNum++) {
-      for (let colNum = range.s.c; colNum <= range.e.c; colNum++) {
-        const cellAddress = { c: colNum, r: rowNum };
-        const cellRef = XLSX.utils.encode_cell(cellAddress);
-        if (!worksheet[cellRef]) continue;
-        if (!worksheet[cellRef].s) {
-          worksheet[cellRef].s = {};
-        }
-        worksheet[cellRef].s.alignment = {
-          horizontal: "center", // Center align horizontally
-          vertical: "center", // Center align vertically
-        };
-      }
-    }
-
-    // Create a new workbook and append the worksheet
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Workers Data");
-
-    // Export the Excel file
     XLSX.writeFile(workbook, "workers_data.xlsx");
   };
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const history = useHistory();
 
   return (
@@ -186,6 +193,12 @@ const Dashboard: React.FC = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent>
+        <IonInput
+          placeholder="Search by Block and Row (e.g., Block 7 41B)"
+          value={searchTerm}
+          onIonInput={handleSearch}
+          style={{ margin: "20px" }}
+        />
         <IonGrid>
           <IonRow>
             <IonCol className="centered-col">
@@ -198,14 +211,16 @@ const Dashboard: React.FC = () => {
               <IonLabel>Total Stock Count</IonLabel>
             </IonCol>
             <IonCol className="centered-col">
-              <IonLabel>Blocks & Rows</IonLabel>
+              <IonLabel>Blocks</IonLabel>
             </IonCol>
-
+            <IonCol className="centered-col">
+              <IonLabel>Rows</IonLabel>
+            </IonCol>
             <IonCol className="centered-col">
               <IonLabel>Date</IonLabel>
             </IonCol>
           </IonRow>
-          {aggregatedData.map((data, index) => (
+          {currentData.map((data, index) => (
             <IonRow key={index}>
               <IonCol className="centered-col-2">{data.workerID}</IonCol>
               <IonCol className="centered-col-2">{data.name}</IonCol>
@@ -213,13 +228,16 @@ const Dashboard: React.FC = () => {
                 {data.total_stock_count}
               </IonCol>
               <IonCol className="centered-col-2">
-                {data.block_names.slice(0, -2)}{" "}
-                {/* This will now show Block + Rows like "Block 1 5A, 6A" */}
+                {data.block_names.slice(0, -2)}
+              </IonCol>
+              <IonCol className="centered-col-2">
+                {data.row_numbers.slice(0, -2)}
               </IonCol>
               <IonCol className="centered-col-2">{data.date}</IonCol>
             </IonRow>
           ))}
         </IonGrid>
+
         <IonButton
           style={{ marginTop: "40px" }}
           expand="block"
@@ -235,6 +253,13 @@ const Dashboard: React.FC = () => {
         >
           Go to Home
         </IonButton>
+
+        {/* Pagination Component */}
+        <Pagination
+          totalPages={totalPages}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+        />
       </IonContent>
     </IonPage>
   );
