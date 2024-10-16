@@ -348,7 +348,14 @@ const CheckOut: React.FC = () => {
           isOpen={showToast}
           onDidDismiss={() => setShowToast(false)}
           message="Check-out successful!"
-          duration={2000}
+          cssClass="custom-toast"
+          buttons={[
+            {
+              text: "OK",
+              role: "cancel",
+              handler: () => setShowToast(false),
+            },
+          ]}
         />
       </IonContent>
       <Footer />

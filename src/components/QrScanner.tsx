@@ -12,8 +12,22 @@ const BarcodeScannerComponent: React.FC<BarcodeScannerProps> = ({
   const [isSupported, setIsSupported] = useState(false);
   const [presentAlert] = useIonAlert();
 
+  // Function to install Google Barcode Scanner module, ignoring the error if it's already installed
+  const installBarcodeModule = async () => {
+    try {
+      await BarcodeScanner.installGoogleBarcodeScannerModule();
+      console.log("Google Barcode Scanner Module installed successfully.");
+    } catch (error) {
+      if (error.message.includes("already installed")) {
+        console.log("Google Barcode Scanner Module is already installed.");
+      } else {
+        console.error("Error installing Google Barcode Scanner Module:", error);
+      }
+    }
+  };
+
   useEffect(() => {
-    const checkSupport = async () => {
+    const checkSupportAndInstall = async () => {
       const result = await BarcodeScanner.isSupported();
       setIsSupported(result.supported);
       if (!result.supported) {
@@ -22,9 +36,12 @@ const BarcodeScannerComponent: React.FC<BarcodeScannerProps> = ({
           message: "Sorry, Barcode Scanner is not supported on your device.",
           buttons: ["OK"],
         });
+      } else {
+        // Attempt to install the module
+        await installBarcodeModule();
       }
     };
-    checkSupport();
+    checkSupportAndInstall();
   }, [presentAlert]);
 
   // Function to request camera permissions
@@ -47,16 +64,12 @@ const BarcodeScannerComponent: React.FC<BarcodeScannerProps> = ({
 
     try {
       const { barcodes } = await BarcodeScanner.scan();
-
-      // Attempt to parse the barcode content as JSON
       barcodes.forEach((barcode) => {
         try {
           const jsonData = JSON.parse(barcode.rawValue);
           console.log("Parsed JSON Data:", jsonData);
 
-          // Handle the JSON data (for example, worker details)
           if (jsonData.workerID && jsonData.workerName) {
-            // Call the onScanSuccess prop to pass worker data back to the parent
             onScanSuccess({
               workerID: jsonData.workerID,
               workerName: jsonData.workerName,
@@ -78,8 +91,8 @@ const BarcodeScannerComponent: React.FC<BarcodeScannerProps> = ({
           });
         }
       });
-    } catch (error) {
-      console.error("Error during scanning:", error);
+    } catch (scanError) {
+      console.error("Error during scanning:", scanError);
       presentAlert({
         header: "Error",
         message: "An error occurred during the scanning process.",

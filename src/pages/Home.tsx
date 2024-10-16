@@ -1,20 +1,26 @@
 import React, { useEffect } from "react";
 import { IonContent, IonPage } from "@ionic/react";
-import { App } from "@capacitor/app";
+import { App as CapacitorApp } from "@capacitor/app";
 import { isPlatform } from "@ionic/react";
+import { useIonRouter } from "@ionic/react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import ExploreContainer from "../components/ExploreContainer";
 import Cards from "../components/Cards";
 
 const Home: React.FC = () => {
+  const router = useIonRouter();
+
   useEffect(() => {
     let listener: any;
 
     const setupBackButtonListener = async () => {
       if (isPlatform("android")) {
-        listener = await App.addListener("backButton", () => {
-          App.exitApp(); // Exits the app
+        listener = await CapacitorApp.addListener("backButton", () => {
+          if (router.canGoBack()) {
+            router.goBack(); // Go to the previous page
+          } else {
+            CapacitorApp.exitApp(); // Exit the app if on the last screen
+          }
         });
       }
     };
@@ -27,14 +33,13 @@ const Home: React.FC = () => {
         listener.remove();
       }
     };
-  }, []);
+  }, [router]);
 
   return (
     <IonPage>
       <IonContent>
         <Header />
         <Cards />
-        {/* <ExploreContainer /> */}
         <Footer />
       </IonContent>
     </IonPage>

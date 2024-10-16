@@ -19,6 +19,7 @@
     "@capacitor/app": "latest",
     "@capacitor/core": "^6.1.2",
     "@capacitor/haptics": "latest",
+    "@capacitor/ios": "6.1.2",
     "@capacitor/keyboard": "latest",
     "@capacitor/live-updates": "0.3.1",
     "@capacitor/status-bar": "latest",

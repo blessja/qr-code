@@ -12,11 +12,12 @@ import {
   IonToast,
 } from "@ionic/react";
 import {
-  Select,
-  MenuItem,
   FormControl,
   InputLabel,
   Button,
+  TextField,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import Header from "./Header";
 import Footer from "./Footer";
@@ -31,15 +32,12 @@ const CheckIn: React.FC = () => {
   const [blockName, setBlockName] = useState("");
   const [rowNumber, setRowNumber] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<string[]>([]);
-  const [rows, setRows] = useState<string[]>([]);
-  const [checkedInRows, setCheckedInRows] = useState<string[]>([]); // Track checked-in rows
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
 
   const history = useHistory();
 
-  // Fetch block names when component mounts
   useEffect(() => {
     fetch("https://farm-managment-app.onrender.com/api/blocks")
       .then((response) => response.json())
@@ -50,33 +48,6 @@ const CheckIn: React.FC = () => {
       });
   }, []);
 
-  // Fetch rows for the selected block and also get currently checked-in rows
-  useEffect(() => {
-    if (blockName) {
-      fetch(
-        `https://farm-managment-app.onrender.com/api/block/${blockName}/rows`
-      )
-        .then((response) => response.json())
-        .then((data) => {
-          setRows(data);
-        })
-        .catch((error) => console.error("Error fetching rows:", error));
-
-      // Fetch checked-in rows for the selected block
-      fetch(
-        `https://farm-managment-app.onrender.com/api/block/${blockName}/checked-in-rows`
-      )
-        .then((response) => response.json())
-        .then((checkedInData) => {
-          setCheckedInRows(checkedInData);
-        })
-        .catch((error) =>
-          console.error("Error fetching checked-in rows:", error)
-        );
-    }
-  }, [blockName]);
-
-  // Function to handle successful scan
   const handleScanSuccess = (workerData: {
     workerName: string;
     workerID: string;
@@ -85,8 +56,11 @@ const CheckIn: React.FC = () => {
     setWorkerID(workerData.workerID);
   };
 
-  // Filter out rows that are currently checked in
-  const availableRows = rows.filter((row) => !checkedInRows.includes(row));
+  const handleRowInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    let input = event.target.value;
+    input = input.toUpperCase(); // Capitalize letters
+    setRowNumber(input);
+  };
 
   const handleCheckIn = async () => {
     if (!workerID || !workerName || !blockName || rowNumber === null) {
@@ -105,22 +79,24 @@ const CheckIn: React.FC = () => {
         }
       );
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Show the error message returned from the server
+        setAlertMessage(data.message);
+        setShowAlert(true);
+      } else {
+        // If check-in is successful
         console.log("Check-in successful:", data);
         setShowToast(true);
-        setCheckedInRows((prev) => [...prev, rowNumber]); // Add row to checked-in rows
         setWorkerName("");
         setWorkerID("");
-        setRowNumber(null);
-      } else {
-        const errorData = await response.json();
-        setAlertMessage(`Check-in failed: ${errorData.message}`);
-        setShowAlert(true);
       }
     } catch (error) {
       setAlertMessage("An error occurred during check-in.");
       setShowAlert(true);
+      setWorkerName("");
+      setWorkerID("");
     }
   };
 
@@ -144,7 +120,6 @@ const CheckIn: React.FC = () => {
             <p>Please select the block number and row number</p>
           </IonCardContent>
 
-          {/* Block Dropdown */}
           <FormControl
             variant="outlined"
             style={{ width: "100%", padding: "10px 20px" }}
@@ -162,7 +137,9 @@ const CheckIn: React.FC = () => {
             <Select
               labelId="block-label"
               value={blockName}
-              onChange={(e) => setBlockName(e.target.value)}
+              onChange={(e: React.ChangeEvent<{ value: unknown }>) =>
+                setBlockName(e.target.value as string)
+              }
               label="Block Name"
             >
               <MenuItem value="">
@@ -176,37 +153,17 @@ const CheckIn: React.FC = () => {
             </Select>
           </FormControl>
 
-          {/* Row Dropdown */}
           <FormControl
             variant="outlined"
             disabled={!blockName}
             style={{ width: "100%", marginTop: "20px", padding: "10px 20px" }}
           >
-            <InputLabel
-              style={{
-                display: "flex",
-                padding: "10px 20px",
-                fontSize: "16px",
-              }}
-              id="row-label"
-            >
-              Row Number
-            </InputLabel>
-            <Select
-              labelId="row-label"
-              value={rowNumber || ""}
-              onChange={(e) => setRowNumber(e.target.value)}
+            <TextField
               label="Row Number"
-            >
-              <MenuItem value="">
-                <em>Select Row</em>
-              </MenuItem>
-              {availableRows.map((row) => (
-                <MenuItem key={row} value={row}>
-                  {row}
-                </MenuItem>
-              ))}
-            </Select>
+              value={rowNumber || ""}
+              onChange={handleRowInputChange}
+              placeholder="Enter Row (e.g., 8A, 21B)"
+            />
           </FormControl>
 
           <IonButton
@@ -233,12 +190,11 @@ const CheckIn: React.FC = () => {
             sx={{ mr: 2, mt: 2, ml: 2 }}
             onClick={() => history.push("/checkout")}
           >
-            checkout
+            Checkout
           </Button>
         </div>
       </IonContent>
 
-      {/* IonAlert for Error Messages */}
       <IonAlert
         isOpen={showAlert}
         onDidDismiss={() => setShowAlert(false)}
@@ -247,13 +203,20 @@ const CheckIn: React.FC = () => {
         buttons={["OK"]}
       />
 
-      {/* IonToast for Success Messages */}
       <IonToast
         isOpen={showToast}
         onDidDismiss={() => setShowToast(false)}
         message="Check-in successful!"
-        duration={2000}
+        cssClass="custom-toast"
+        buttons={[
+          {
+            text: "OK",
+            role: "cancel",
+            handler: () => setShowToast(false),
+          },
+        ]}
       />
+
       <Footer />
     </IonPage>
   );
