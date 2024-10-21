@@ -8,6 +8,7 @@ import CheckOut from "./components/CheckOut";
 import PieceWork from "./components/PieceWork_1";
 import PieceWork_2 from "./components/PieceWork_2";
 import Register from "./components/Register";
+import MonitorClockInOut from "./pages/MonitorClockInOut";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
@@ -57,6 +58,9 @@ const App: React.FC = () => (
         </Route>
         <Route exact path="/register">
           <Register />
+        </Route>
+        <Route exact path="/monitor-clockins">
+          <MonitorClockInOut />
         </Route>
       </IonRouterOutlet>
     </IonReactRouter>

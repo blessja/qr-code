@@ -14,7 +14,7 @@ const PieceWork_1: React.FC = () => {
           <IonTitle>Piece Work Uitknip</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent></IonContent>
+      <IonContent>working</IonContent>
     </IonPage>
   );
 };

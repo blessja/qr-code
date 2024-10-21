@@ -1,0 +1,85 @@
+/* MonitorClockInOut.css */
+
+/* Container for the entire page */
+.monitor-container {
+  padding: 20px;
+  margin: 0 auto;
+  max-width: 1200px;
+}
+
+/* Header section */
+.monitor-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.monitor-header h1 {
+  font-size: 2em;
+  color: #333;
+}
+
+.monitor-header p {
+  font-size: 1.2em;
+  color: #666;
+}
+
+/* Table styles */
+.monitor-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.monitor-table th,
+.monitor-table td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: center;
+}
+
+.monitor-table th {
+  background-color: #f2f2f2;
+  color: #333;
+}
+
+.monitor-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.monitor-table tr:hover {
+  background-color: #f1f1f1;
+}
+
+.monitor-table td {
+  font-size: 1em;
+}
+
+/* Status badge styles */
+.status-badge {
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.status-badge.clocked-in {
+  background-color: #4caf50;
+  color: white;
+}
+
+.status-badge.clocked-out {
+  background-color: #f44336;
+  color: white;
+}
+
+/* Responsive for smaller screens */
+@media screen and (max-width: 768px) {
+  .monitor-container {
+    padding: 10px;
+  }
+
+  .monitor-table th,
+  .monitor-table td {
+    padding: 8px;
+  }
+}

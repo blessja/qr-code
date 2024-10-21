@@ -17,11 +17,12 @@ const BarcodeScannerComponent: React.FC<BarcodeScannerProps> = ({
     try {
       await BarcodeScanner.installGoogleBarcodeScannerModule();
       console.log("Google Barcode Scanner Module installed successfully.");
-    } catch (error) {
-      if (error.message.includes("already installed")) {
+    } catch (error: unknown) {
+      const err = error as Error; // Assert the error as a known type
+      if (err.message.includes("already installed")) {
         console.log("Google Barcode Scanner Module is already installed.");
       } else {
-        console.error("Error installing Google Barcode Scanner Module:", error);
+        console.error("Error installing Google Barcode Scanner Module:", err);
       }
     }
   };
@@ -82,8 +83,9 @@ const BarcodeScannerComponent: React.FC<BarcodeScannerProps> = ({
           } else {
             throw new Error("Invalid JSON structure.");
           }
-        } catch (error) {
-          console.error("Error parsing JSON from QR code:", error);
+        } catch (error: unknown) {
+          const err = error as Error; // Assert the error type here as well
+          console.error("Error parsing JSON from QR code:", err);
           presentAlert({
             header: "Error",
             message: "The scanned QR code does not contain valid JSON data.",
@@ -91,8 +93,9 @@ const BarcodeScannerComponent: React.FC<BarcodeScannerProps> = ({
           });
         }
       });
-    } catch (scanError) {
-      console.error("Error during scanning:", scanError);
+    } catch (scanError: unknown) {
+      const err = scanError as Error; // Assert scanError type here
+      console.error("Error during scanning:", err);
       presentAlert({
         header: "Error",
         message: "An error occurred during the scanning process.",

@@ -49,7 +49,7 @@ const Cards = () => {
                       fontWeight: "bold",
                     }}
                   >
-                    Piece Work Day
+                    Work Day
                   </IonCardTitle>
                 </IonCardHeader>
                 <div className="info">
@@ -110,7 +110,7 @@ const Cards = () => {
                       fontWeight: "bold",
                     }}
                   >
-                    Register
+                    Register 1
                   </IonCardTitle>
                 </IonCardHeader>
                 <div className="info">

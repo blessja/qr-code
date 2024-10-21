@@ -39,8 +39,7 @@ interface AggregatedData {
   name: string;
   total_stock_count: number;
   date: string;
-  block_names: string;
-  row_numbers: string;
+  block_rows: string; // This will now store the grouped blocks and rows
 }
 
 const Dashboard: React.FC = () => {
@@ -55,7 +54,7 @@ const Dashboard: React.FC = () => {
         );
         setWorkersData(response.data);
       } catch (error) {
-        console.error("Error fetching data:", error.message);
+        console.error("Error fetching data:", (error as Error).message);
       }
     };
 
@@ -80,18 +79,35 @@ const Dashboard: React.FC = () => {
             name: worker.name,
             total_stock_count: 0,
             date: dateKey,
-            block_names: "",
-            row_numbers: "",
+            block_rows: "",
           };
         }
 
         workerDataByDate[dateKey].total_stock_count += row.stock_count;
 
-        // Concatenate block and row for easier search
-        workerDataByDate[
-          dateKey
-        ].block_names += `${block.block_name} ${row.row_number}, `;
+        // Group rows by block and concatenate them
+        const blockName = block.block_name;
+        const rowNumber = row.row_number;
+
+        // Check if the block has already been added to avoid repeating it
+        if (!workerDataByDate[dateKey].block_rows.includes(blockName)) {
+          workerDataByDate[
+            dateKey
+          ].block_rows += `${blockName}: ${rowNumber}, `;
+        } else {
+          // Add only the row number if the block is already in the string
+          workerDataByDate[dateKey].block_rows = workerDataByDate[
+            dateKey
+          ].block_rows.replace(`${blockName}:`, `${blockName}: ${rowNumber},`);
+        }
       });
+    });
+
+    // Clean up the extra commas and spaces
+    Object.keys(workerDataByDate).forEach((key) => {
+      workerDataByDate[key].block_rows = workerDataByDate[
+        key
+      ].block_rows.replace(/,\s*$/, "");
     });
 
     acc.push(...Object.values(workerDataByDate));
@@ -107,7 +123,7 @@ const Dashboard: React.FC = () => {
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     return (
       data.name.toLowerCase().includes(lowerCaseSearchTerm) ||
-      data.block_names.toLowerCase().includes(lowerCaseSearchTerm)
+      data.block_rows.toLowerCase().includes(lowerCaseSearchTerm)
     );
   });
 
@@ -116,7 +132,7 @@ const Dashboard: React.FC = () => {
       WorkerID: data.workerID,
       WorkerName: data.name,
       TotalStockCount: data.total_stock_count,
-      Blocks: data.block_names.slice(0, -2), // Remove trailing comma
+      BlockRows: data.block_rows, // Use the updated block_rows field
       Date: data.date,
     }));
 
@@ -180,9 +196,7 @@ const Dashboard: React.FC = () => {
               <IonCol className="centered-col-2">
                 {data.total_stock_count}
               </IonCol>
-              <IonCol className="centered-col-2">
-                {data.block_names.slice(0, -2)}
-              </IonCol>
+              <IonCol className="centered-col-2">{data.block_rows}</IonCol>
               <IonCol className="centered-col-2">{data.date}</IonCol>
             </IonRow>
           ))}

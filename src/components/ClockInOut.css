@@ -1,0 +1,19 @@
+.custom-toast {
+  --background: green;
+  --color: white;
+  --border-radius: 10px;
+  --width: 80%;
+  --min-width: 280px;
+  --max-width: 400px;
+  --margin: 0 auto;
+  --top: 50%;
+  transform: translateY(-50%);
+}
+
+.custom-toast .button {
+  --color: white; /* This will ensure the OK button text is white */
+}
+
+.btns {
+  margin-top: 5rem;
+}
