@@ -27,7 +27,7 @@ const MonitorClockInOut: React.FC = () => {
     const fetchClockData = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:5003/api/monitor-clockins"
+          "https://farm-managment-app.onrender.com/api/monitor-clockins"
         );
         setClockData(response.data); // Store the full response
       } catch (error) {
