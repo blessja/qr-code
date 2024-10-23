@@ -1,0 +1,11 @@
+.centered-col {
+  text-align: center;
+}
+
+.centered-col-2 {
+  text-align: center;
+}
+
+.space-col {
+  width: 20px; /* Adjust this value to control space between name and days */
+}

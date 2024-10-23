@@ -321,7 +321,7 @@ const CheckOut: React.FC = () => {
           <Button
             variant="contained"
             color="primary"
-            sx={{ mr: 2, mt: 2, ml: 2 }}
+            sx={{ mr: 2, ml: 2 }}
             onClick={() => history.push("/piecework_1")}
           >
             Back
@@ -329,7 +329,7 @@ const CheckOut: React.FC = () => {
           <Button
             variant="contained"
             color="secondary"
-            sx={{ mr: 2, mt: 2, ml: 2 }}
+            sx={{ mr: 2, ml: 2 }}
             onClick={() => history.push("/checkin")}
           >
             Check-in

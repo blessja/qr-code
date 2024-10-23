@@ -24,6 +24,7 @@ import Footer from "./Footer";
 import { useHistory } from "react-router-dom";
 import QRScanner from "../components/QrScanner";
 import { notifySuccess, notifyError } from "../utils/notify";
+import { SelectChangeEvent } from "@mui/material";
 import "./Checkin.css";
 
 const CheckIn: React.FC = () => {
@@ -137,9 +138,7 @@ const CheckIn: React.FC = () => {
             <Select
               labelId="block-label"
               value={blockName}
-              onChange={(e: React.ChangeEvent<{ value: unknown }>) =>
-                setBlockName(e.target.value as string)
-              }
+              onChange={(e: SelectChangeEvent) => setBlockName(e.target.value)} // Update the event type
               label="Block Name"
             >
               <MenuItem value="">

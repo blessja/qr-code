@@ -16,6 +16,7 @@ import {
 } from "@ionic/react";
 import QRScanner from "../components/QrScanner";
 import { notifySuccess, notifyError } from "../utils/notify";
+import { useHistory } from "react-router-dom";
 import "./ClockInOut.css"; // If needed for styling
 
 // Ensure the path to the sound file is correct
@@ -116,7 +117,7 @@ const Register: React.FC = () => {
       setShowAlert(true);
     }
   };
-
+  const history = useHistory();
   return (
     <IonPage>
       <IonHeader>
@@ -147,7 +148,15 @@ const Register: React.FC = () => {
             </IonButton>
           </IonCardContent>
         </IonCard>
-
+        <IonCard
+          style={{
+            marginTop: "50px",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <IonButton onClick={() => history.push("/clocks")}>Clocks</IonButton>
+        </IonCard>
         <IonAlert
           isOpen={showAlert}
           onDidDismiss={() => setShowAlert(false)}

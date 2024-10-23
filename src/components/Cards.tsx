@@ -110,7 +110,7 @@ const Cards = () => {
                       fontWeight: "bold",
                     }}
                   >
-                    Register 1
+                    Clock In / Out
                   </IonCardTitle>
                 </IonCardHeader>
                 <div className="info">
