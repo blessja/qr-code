@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { BarcodeScanner } from "@capacitor-community/barcode-scanner";
 import Header from "../Header";
 import Footer from "../Footer";
 import { useHistory } from "react-router-dom";
