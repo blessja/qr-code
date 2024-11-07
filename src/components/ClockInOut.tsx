@@ -11,7 +11,7 @@ import {
   IonAlert,
   IonToast,
 } from "@ionic/react";
-import QRScanner from "../components/QrScanner";
+import QRScanner from "./QrScanner";
 import { notifySuccess, notifyError } from "../utils/notify";
 import "./ClockInOut.css";
 

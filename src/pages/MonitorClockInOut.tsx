@@ -18,18 +18,20 @@ import {
   IonText,
 } from "@ionic/react";
 import "./MonitorClockInOut.css";
+import config from "../config"; // Use config for dynamic base URL and settings
 
 const MonitorClockInOut: React.FC = () => {
-  const [clockData, setClockData] = useState<any>(null); // Initially null to handle loading
+  const [clockData, setClockData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchClockData = async () => {
       try {
+        // Use the base URL from your config file
         const response = await axios.get(
-          "https://farm-managment-app.onrender.com/api/monitor-clockins"
+          `${config.apiBaseUrl}/monitor-clockins`
         );
-        setClockData(response.data); // Store the full response
+        setClockData(response.data);
       } catch (error) {
         setError("Error fetching clock-in/out data.");
         console.error(error);
@@ -41,6 +43,27 @@ const MonitorClockInOut: React.FC = () => {
 
   if (clockData === null) {
     return <IonLoading isOpen={true} message={"Loading..."} />;
+  }
+
+  if (error) {
+    return (
+      <IonPage>
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Clock-in/Clock-out Monitoring</IonTitle>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent>
+          <div style={{ textAlign: "center", marginTop: "20px" }}>
+            <IonText
+              style={{ fontSize: "18px", fontWeight: "bold", color: "red" }}
+            >
+              {error}
+            </IonText>
+          </div>
+        </IonContent>
+      </IonPage>
+    );
   }
 
   if (clockData.message) {

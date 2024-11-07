@@ -23,7 +23,10 @@ import {
   Button,
   Input,
 } from "@mui/material";
-import QRScanner from "../components/QrScanner";
+import QRScanner from "./QrScanner";
+import beepSound from "../assets/sounds/scan-beep.mp3";
+
+const successSound = new Audio(beepSound);
 
 const CheckOut: React.FC = () => {
   const [workerID, setWorkerID] = useState("");
@@ -38,7 +41,9 @@ const CheckOut: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
-    fetch("https://farm-managment-app.onrender.com/api/blocks")
+    fetch(
+      "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/blocks"
+    )
       .then((response) => response.json())
       .then((data) => {
         setBlocks(data);
@@ -50,7 +55,7 @@ const CheckOut: React.FC = () => {
   useEffect(() => {
     if (blockName) {
       fetch(
-        `https://farm-managment-app.onrender.com/api/block/${blockName}/rows`
+        `https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/block/${blockName}/rows`
       )
         .then((response) => response.json())
         .then((data) => {
@@ -65,15 +70,18 @@ const CheckOut: React.FC = () => {
     workerName: string;
     workerID: string;
   }) => {
-    setWorkerName(workerData.workerName);
-    setWorkerID(workerData.workerID);
-    console.log("Worker data parsed and set:", workerData);
-
-    // Fetch the check-in details to prefill blockName, rowNumber, and stockCount
     try {
+      setWorkerName(workerData.workerName);
+      setWorkerID(workerData.workerID);
+      playSuccessSound();
+
+      console.log("Worker data parsed and set:", workerData);
+
+      // Fetch the check-in details to prefill blockName, rowNumber, and stockCount
       const response = await fetch(
-        `https://farm-managment-app.onrender.com/api/worker/${workerData.workerID}/current-checkin`
+        `https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/worker/${workerData.workerID}/current-checkin`
       );
+
       if (response.ok) {
         const data = await response.json();
 
@@ -95,13 +103,25 @@ const CheckOut: React.FC = () => {
           console.log("Form populated with fetched data:", checkinData);
         } else {
           console.error("No check-in data found for the worker.");
+          setAlertMessage("No check-in data found for the worker.");
+          setShowAlert(true);
         }
       } else {
         console.error("Failed to fetch check-in details");
+        setAlertMessage("Failed to fetch check-in details.");
+        setShowAlert(true);
       }
     } catch (error) {
       console.error("Error fetching check-in details:", error);
+      setAlertMessage("Error fetching check-in details.");
+      setShowAlert(true);
     }
+  };
+
+  const playSuccessSound = () => {
+    successSound.play().catch((error) => {
+      console.error("Sound playback error:", error);
+    });
   };
 
   const handleScanFailure = (error: string) => {
@@ -126,12 +146,17 @@ const CheckOut: React.FC = () => {
 
     // Use the remaining stocks if stockCount is not provided
     const finalStockCount =
-      stockCount ||
-      (await getRemainingStocks(workerID as string, rowNumber as string));
+      stockCount ?? (await getRemainingStocks(workerID, rowNumber));
+
+    if (isNaN(finalStockCount)) {
+      setAlertMessage("Invalid stock count.");
+      setShowAlert(true);
+      return;
+    }
 
     try {
       const response = await fetch(
-        "https://farm-managment-app.onrender.com/api/checkout",
+        "hhttps://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/checkout",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -149,6 +174,7 @@ const CheckOut: React.FC = () => {
         const data = await response.json();
         console.log("Check-out successful:", data);
         setShowToast(true);
+        // Reset state after successful checkout
         setWorkerID("");
         setWorkerName("");
         setBlockName("");
@@ -178,7 +204,7 @@ const CheckOut: React.FC = () => {
   ): Promise<number> => {
     try {
       const response = await fetch(
-        `https://farm-managment-app.onrender.com/api/worker/${workerID}/row/${rowNumber}/remaining-stocks`
+        `https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/worker/${workerID}/row/${rowNumber}/remaining-stocks`
       );
       if (response.ok) {
         const data = await response.json();

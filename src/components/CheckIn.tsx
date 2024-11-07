@@ -40,7 +40,9 @@ const CheckIn: React.FC = () => {
   const history = useHistory();
 
   useEffect(() => {
-    fetch("https://farm-managment-app.onrender.com/api/blocks")
+    fetch(
+      "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/blocks"
+    )
       .then((response) => response.json())
       .then((data) => setBlocks(data))
       .catch((error) => {
@@ -72,7 +74,7 @@ const CheckIn: React.FC = () => {
 
     try {
       const response = await fetch(
-        "https://farm-managment-app.onrender.com/api/checkin",
+        "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/checkin",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

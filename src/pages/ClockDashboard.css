@@ -1,11 +1,130 @@
-.centered-col {
+/* Dashboard.css */
+.button-container {
+  display: flex;
+  justify-content: space-between;
+  margin: 1rem;
+}
+
+.header-col {
+  font-weight: bold;
   text-align: center;
+}
+
+.data-col {
+  text-align: center;
+}
+
+.date-label {
+  font-size: 0.8rem;
+  color: gray;
+}
+
+.loading-text {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+  .header-col,
+  .data-col {
+    font-size: 0.9rem;
+  }
+
+  .date-label {
+    font-size: 0.7rem;
+  }
+}
+
+.centered-col-2-n {
+  /* text-align: center; */
+  padding: 8px;
+  border: 1px solid #241f1f; /* Adds the grid lines */
+}
+.centered-col {
+  font-size: 0.7rem;
 }
 
 .centered-col-2 {
   text-align: center;
+  padding: 5px;
+  border: 1px solid #ccc; /* Adds the grid lines */
 }
 
-.space-col {
-  width: 20px; /* Adjust this value to control space between name and days */
+IonRow {
+  border-bottom: 1px solid #ccc; /* Horizontal grid lines */
+}
+
+IonCol {
+  border-right: 1px solid #ccc; /* Vertical grid lines */
+}
+
+IonCol:last-child {
+  border-right: none; /* No border on the last column */
+}
+
+IonRow:last-child {
+  border-bottom: none; /* No border on the last row */
+}
+/* ClockDashboard.css */
+
+/* Center columns and apply some spacing */
+/* .centered-col,
+.centered-col-2,
+.centered-col-2-n {
+  text-align: center;
+} */
+
+/* Media query for smaller screens */
+@media (max-width: 768px) {
+  .centered-col-2,
+  .centered-col-2-n {
+    font-size: 0.8rem; /* Reduce font size on smaller screens */
+  }
+
+  IonLabel {
+    font-size: 0.75rem; /* Adjust label font size for readability */
+  }
+
+  /* Make buttons stack vertically on small screens */
+  .ion-button {
+    margin-bottom: 10px;
+  }
+}
+
+/* Media query for mobile devices (width < 600px) */
+@media only screen and (max-width: 320px) {
+  /* Make font size smaller on mobile */
+  .centered-col,
+  .centered-col-2 {
+    font-size: 5px;
+  }
+
+  /* Adjust padding and margin for mobile view */
+  IonInput {
+    margin: 10px;
+    font-size: 12px;
+  }
+
+  /* Ensure buttons are easily clickable */
+  IonButton {
+    font-size: 14px;
+    padding: 12px;
+  }
+
+  /* Grid columns should stack vertically on mobile */
+  IonCol {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  /* Grid layout should stack rows on small screens */
+  IonGrid {
+    padding: 5px;
+  }
+
+  /* Reduce the width of the content */
+  IonContent {
+    padding: 10px;
+  }
 }

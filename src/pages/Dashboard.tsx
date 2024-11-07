@@ -15,6 +15,7 @@ import {
 import axios from "axios";
 import * as XLSX from "xlsx";
 import { useHistory } from "react-router-dom";
+import config from "../config"; // Import your config file
 import "./Dashboard.css";
 
 interface Row {
@@ -49,9 +50,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(
-          "https://farm-managment-app.onrender.com/api/workers"
-        );
+        const response = await axios.get(`${config.apiBaseUrl}/workers`); // Use dynamic URL
         setWorkersData(response.data);
       } catch (error) {
         console.error("Error fetching data:", (error as Error).message);

@@ -8,32 +8,31 @@ import Footer from "../components/Footer";
 import Cards from "../components/Cards";
 
 const Home: React.FC = () => {
-  // const router = useIonRouter();
+  const router = useIonRouter(); // Get the router instance
 
-  // useEffect(() => {
-  //   let listener: any;
+  useEffect(() => {
+    // Back button logic for Android
+    let listener: any;
+    const setupBackButtonListener = async () => {
+      if (isPlatform("android")) {
+        listener = await CapacitorApp.addListener("backButton", () => {
+          if (router.canGoBack()) {
+            router.goBack(); // Go to the previous page
+          } else {
+            CapacitorApp.exitApp(); // Exit the app if on the last screen
+          }
+        });
+      }
+    };
+    setupBackButtonListener();
 
-  //   const setupBackButtonListener = async () => {
-  //     if (isPlatform("android")) {
-  //       listener = await CapacitorApp.addListener("backButton", () => {
-  //         if (router.canGoBack()) {
-  //           router.goBack(); // Go to the previous page
-  //         } else {
-  //           CapacitorApp.exitApp(); // Exit the app if on the last screen
-  //         }
-  //       });
-  //     }
-  //   };
-
-  //   setupBackButtonListener();
-
-  //   // Cleanup listener when component unmounts
-  //   return () => {
-  //     if (listener) {
-  //       listener.remove();
-  //     }
-  //   };
-  // }, [router]);
+    // Cleanup listener when component unmounts
+    return () => {
+      if (listener) {
+        listener.remove();
+      }
+    };
+  }, [router]);
 
   return (
     <IonPage>
