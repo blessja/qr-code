@@ -31,6 +31,7 @@ const successSound = new Audio(beepSound);
 const CheckOut: React.FC = () => {
   const [workerID, setWorkerID] = useState("");
   const [workerName, setWorkerName] = useState("");
+  const [jobType, setJobType] = useState("");
   const [blockName, setBlockName] = useState("");
   const [rowNumber, setRowNumber] = useState<string | null>(null);
   const [stockCount, setStockCount] = useState<number | null>(null);
@@ -77,7 +78,7 @@ const CheckOut: React.FC = () => {
 
       console.log("Worker data parsed and set:", workerData);
 
-      // Fetch the check-in details to prefill blockName, rowNumber, and stockCount
+      // Fetch the check-in details to prefill blockName, rowNumber, jobType, and stockCount
       const response = await fetch(
         `https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/worker/${workerData.workerID}/current-checkin`
       );
@@ -88,33 +89,33 @@ const CheckOut: React.FC = () => {
         if (Array.isArray(data) && data.length > 0) {
           const checkinData = data[0]; // Access the first object in the array
 
-          // Log each field to confirm you received the right data
-          console.log("Fetched blockName:", checkinData.blockName);
-          console.log("Fetched rowNumber:", checkinData.rowNumber);
-          console.log("Fetched stockCount:", checkinData.stockCount);
+          // Set jobType using the correct key from the response
+          if (checkinData.job_type) {
+            setJobType(checkinData.job_type);
+            console.log("Fetched jobType:", checkinData.job_type);
+          }
 
-          // Populate the form fields
-          setBlockName(checkinData.blockName);
-          setRowNumber(checkinData.rowNumber);
+          // Set other data
+          if (checkinData.blockName) {
+            setBlockName(checkinData.blockName);
+            console.log("Fetched blockName:", checkinData.blockName);
+          }
 
-          // Set the stock count based on the remaining stock count if available
-          setStockCount(checkinData.remainingStocks || checkinData.stockCount);
+          if (checkinData.rowNumber) {
+            setRowNumber(checkinData.rowNumber);
+            console.log("Fetched rowNumber:", checkinData.rowNumber);
+          }
 
-          console.log("Form populated with fetched data:", checkinData);
-        } else {
-          console.error("No check-in data found for the worker.");
-          setAlertMessage("No check-in data found for the worker.");
-          setShowAlert(true);
+          if (checkinData.stockCount) {
+            setStockCount(checkinData.stockCount);
+            console.log("Fetched stockCount:", checkinData.stockCount);
+          }
         }
       } else {
-        console.error("Failed to fetch check-in details");
-        setAlertMessage("Failed to fetch check-in details.");
-        setShowAlert(true);
+        console.error("Error fetching check-in details:", response.statusText);
       }
     } catch (error) {
-      console.error("Error fetching check-in details:", error);
-      setAlertMessage("Error fetching check-in details.");
-      setShowAlert(true);
+      console.error("Error during handleScanSuccess:", error);
     }
   };
 
@@ -136,6 +137,7 @@ const CheckOut: React.FC = () => {
       blockName,
       rowNumber,
       stockCount,
+      jobType,
     });
 
     if (!workerID || !blockName || rowNumber === null) {
@@ -156,7 +158,7 @@ const CheckOut: React.FC = () => {
 
     try {
       const response = await fetch(
-        "hhttps://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/checkout",
+        "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/checkout",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -166,6 +168,7 @@ const CheckOut: React.FC = () => {
             blockName,
             rowNumber,
             stockCount: finalStockCount,
+            jobType,
           }),
         }
       );
@@ -180,6 +183,7 @@ const CheckOut: React.FC = () => {
         setBlockName("");
         setRowNumber(null);
         setStockCount(null);
+        setJobType("");
       } else {
         const errorData = await response.json();
         console.error(
@@ -239,6 +243,31 @@ const CheckOut: React.FC = () => {
           <IonCardContent>
             <p>Please select the block number and row number</p>
           </IonCardContent>
+          <FormControl
+            variant="outlined"
+            style={{ width: "100%", marginTop: "20px", padding: "10px 20px" }}
+          >
+            <InputLabel
+              style={{
+                display: "flex",
+                padding: "10px 20px",
+                fontSize: "16px",
+              }}
+              id="jobTypeInput"
+            >
+              Job Name
+            </InputLabel>
+            <Input
+              // labelId="Job Name"
+              value={jobType || ""} // Ensure this reflects the fetched job type
+              onChange={(e) => {
+                setJobType(e.target.value);
+                console.log("job selected:", e.target.value);
+              }}
+              // label="Job Name"
+            ></Input>
+          </FormControl>
+
           <FormControl
             variant="outlined"
             style={{ width: "100%", padding: "10px 20px" }}

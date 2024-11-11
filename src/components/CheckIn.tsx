@@ -30,6 +30,7 @@ import "./Checkin.css";
 const CheckIn: React.FC = () => {
   const [workerName, setWorkerName] = useState("");
   const [workerID, setWorkerID] = useState("");
+  const [jobType, setJobType] = useState("");
   const [blockName, setBlockName] = useState("");
   const [rowNumber, setRowNumber] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<string[]>([]);
@@ -65,8 +66,22 @@ const CheckIn: React.FC = () => {
     setRowNumber(input);
   };
 
+  const handleJobTypeInputChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    let input = event.target.value;
+    input = input.toUpperCase(); // Capitalize letters
+    setJobType(input);
+  };
+
   const handleCheckIn = async () => {
-    if (!workerID || !workerName || !blockName || rowNumber === null) {
+    if (
+      !workerID ||
+      !workerName ||
+      !blockName ||
+      rowNumber === null ||
+      jobType === null
+    ) {
       setAlertMessage("Please provide all required information.");
       setShowAlert(true);
       return notifyError("Please fill all the fields");
@@ -78,7 +93,13 @@ const CheckIn: React.FC = () => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ workerID, workerName, blockName, rowNumber }),
+          body: JSON.stringify({
+            workerID,
+            workerName,
+            blockName,
+            rowNumber,
+            jobType,
+          }),
         }
       );
 
@@ -122,6 +143,18 @@ const CheckIn: React.FC = () => {
           <IonCardContent>
             <p>Please select the block number and row number</p>
           </IonCardContent>
+          <FormControl
+            variant="outlined"
+            disabled={!blockName}
+            style={{ width: "100%", marginTop: "20px", padding: "10px 20px" }}
+          >
+            <TextField
+              label="Job Name"
+              value={jobType || ""}
+              onChange={handleJobTypeInputChange}
+              placeholder="Enter type of work (e.g., Suier, Prunnig)"
+            />
+          </FormControl>
 
           <FormControl
             variant="outlined"

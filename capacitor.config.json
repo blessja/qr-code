@@ -1,6 +1,6 @@
 {
-  "appId": "qr.code",
-  "appName": "Glen Oak",
+  "appId": "fb9daa32",
+  "appName": "qr-code",
   "webDir": "dist",
   "resourcesPath": "resources",
   "server": {
@@ -11,5 +11,11 @@
       "capacitor://localhost",
       "ionic://localhost"
     ]
+  },
+  "plugins": {
+    "LiveUpdates": {
+      "appId": "fb9daa32",
+      "channel": "production"
+    }
   }
 }

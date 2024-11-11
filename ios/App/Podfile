@@ -26,4 +26,9 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+
+  # Add this block to exclude arm64 for the iOS simulator
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+  end
 end

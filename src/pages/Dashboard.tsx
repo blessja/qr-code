@@ -15,7 +15,7 @@ import {
 import axios from "axios";
 import * as XLSX from "xlsx";
 import { useHistory } from "react-router-dom";
-import config from "../config"; // Import your config file
+import config from "../config";
 import "./Dashboard.css";
 
 interface Row {
@@ -40,7 +40,7 @@ interface AggregatedData {
   name: string;
   total_stock_count: number;
   date: string;
-  block_rows: string; // This will now store the grouped blocks and rows
+  block_rows: string; // store the grouped blocks and rows
 }
 
 const Dashboard: React.FC = () => {
@@ -50,7 +50,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`${config.apiBaseUrl}/workers`); // Use dynamic URL
+        const response = await axios.get(`${config.apiBaseUrl}/workers`);
         setWorkersData(response.data);
       } catch (error) {
         console.error("Error fetching data:", (error as Error).message);
