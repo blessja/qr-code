@@ -13,7 +13,9 @@ import {
 } from "@ionic/react";
 import axios from "axios";
 import * as XLSX from "xlsx";
-import moment from "moment"; // Import moment
+import moment from "moment";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import "./ClockDashboard.css";
 import config from "../config";
 
@@ -34,7 +36,11 @@ interface ClockInOutData {
   workedHoursPerDay: WorkedHoursEntry[];
   clockIns: ClockInEntry[];
 }
-
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 const ClockDashboard: React.FC = () => {
   const [clockData, setClockData] = useState<ClockInOutData[]>([]);
   const [currentWeek, setCurrentWeek] = useState<string[]>([]);
@@ -182,6 +188,49 @@ const ClockDashboard: React.FC = () => {
       setCurrentWeek(getCurrentWeek(newWeekStart));
     }
   };
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Clock Dashboard", 14, 10);
+    doc.setFontSize(12);
+    doc.text(
+      `Week: ${currentWeek[0]} to ${currentWeek[currentWeek.length - 1]}`,
+      14,
+      16
+    );
+
+    const tableData = clockData.map((data) => {
+      const row = [
+        data.workerID,
+        data.workerName,
+        ...daysOfWeek.map((_, dayIndex) => {
+          const date = currentWeek[dayIndex];
+          const hoursEntry = data.workedHoursPerDay.find(
+            (entry) => entry.date === date
+          );
+          return hoursEntry ? formatHoursAndMinutes(hoursEntry.hours) : "0 hrs";
+        }),
+      ];
+      return row;
+    });
+
+    const headers = [
+      [
+        "ID",
+        "Name",
+        ...daysOfWeek.map((day, index) => `${day} (${currentWeek[index]})`),
+      ],
+    ];
+
+    doc.autoTable({
+      head: headers,
+      body: tableData,
+      startY: 20,
+      theme: "grid",
+      styles: { fontSize: 8, halign: "center" },
+    });
+
+    doc.save("clock_dashboard.pdf");
+  };
 
   return (
     <IonPage>
@@ -283,6 +332,14 @@ const ClockDashboard: React.FC = () => {
             onClick={exportToExcel}
           >
             Export to Excel
+          </button>
+        </div>
+        <div className="text-center my-5">
+          <button
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+            onClick={exportToPDF}
+          >
+            Export to PDF
           </button>
         </div>
       </IonContent>
