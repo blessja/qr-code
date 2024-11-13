@@ -237,6 +237,14 @@ const ClockDashboard: React.FC = () => {
       <IonHeader>
         <IonToolbar className="bg-blue-500">
           <IonTitle className="text-black">Clock Dashboard</IonTitle>
+          <div className="text-center my-5">
+            <button
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+              onClick={exportToPDF}
+            >
+              Export to PDF
+            </button>
+          </div>
         </IonToolbar>
       </IonHeader>
       <IonContent>
@@ -332,14 +340,6 @@ const ClockDashboard: React.FC = () => {
             onClick={exportToExcel}
           >
             Export to Excel
-          </button>
-        </div>
-        <div className="text-center my-5">
-          <button
-            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-            onClick={exportToPDF}
-          >
-            Export to PDF
           </button>
         </div>
       </IonContent>
