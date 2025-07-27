@@ -19,7 +19,6 @@ def capacitor_pods
   pod 'CapacitorLiveUpdates', :path => '../../node_modules/@capacitor/live-updates'
   pod 'CapacitorNetwork', :path => '../../node_modules/@capacitor/network'
   pod 'CapacitorStatusBar', :path => '../../node_modules/@capacitor/status-bar'
-  pod 'CapacitorStorage', :path => '../../node_modules/@capacitor/storage'
 end
 
 target 'App' do

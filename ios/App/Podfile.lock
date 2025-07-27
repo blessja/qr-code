@@ -22,8 +22,6 @@ PODS:
     - Capacitor
   - CapacitorStatusBar (6.0.1):
     - Capacitor
-  - CapacitorStorage (1.2.5):
-    - Capacitor
   - GoogleDataTransport (9.4.1):
     - GoogleUtilities/Environment (~> 7.7)
     - nanopb (< 2.30911.0, >= 2.30908.0)
@@ -101,7 +99,6 @@ DEPENDENCIES:
   - "CapacitorMlkitBarcodeScanning (from `../../node_modules/@capacitor-mlkit/barcode-scanning`)"
   - "CapacitorNetwork (from `../../node_modules/@capacitor/network`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
-  - "CapacitorStorage (from `../../node_modules/@capacitor/storage`)"
 
 SPEC REPOS:
   trunk:
@@ -142,8 +139,6 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/network"
   CapacitorStatusBar:
     :path: "../../node_modules/@capacitor/status-bar"
-  CapacitorStorage:
-    :path: "../../node_modules/@capacitor/storage"
 
 SPEC CHECKSUMS:
   Capacitor: 679f9673fdf30597493a6362a5d5bf233d46abc2
@@ -156,7 +151,6 @@ SPEC CHECKSUMS:
   CapacitorMlkitBarcodeScanning: 63e217d376f8f63b1be84c0d19568f318e87f4d3
   CapacitorNetwork: 8796cf1f1104a00b289957b6150b7c60e1c2a8d3
   CapacitorStatusBar: b81d4fb5d4e0064c712018071b3ab4b810b39a63
-  CapacitorStorage: 63255170c2f7e9f7363b3e5e015584e6d18f2969
   GoogleDataTransport: 6c09b596d841063d76d4288cc2d2f42cc36e1e2a
   GoogleMLKit: 90ba06e028795a50261f29500d238d6061538711
   GoogleToolboxForMac: 8bef7c7c5cf7291c687cf5354f39f9db6399ad34
@@ -173,6 +167,6 @@ SPEC CHECKSUMS:
   SQLCipher: 77fbe633cd84db04b07876dd50766b4924b57d61
   ZIPFoundation: b8c29ea7ae353b309bc810586181fd073cb3312c
 
-PODFILE CHECKSUM: 2f09147ff6a761140292aeaa558c83b774f3ac4d
+PODFILE CHECKSUM: 4b3c11bade2e6893e66b63025419ec35917866d5
 
 COCOAPODS: 1.15.2
