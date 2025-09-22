@@ -1,133 +1,14 @@
-/* Dashboard.css */
-.centered-col {
-  text-align: center;
-  background-color: lightgray;
+.dashboard-container {
+  padding: 1rem;
 }
-
-/* Dashboard.css */
-.centered-col-2 {
-  text-align: center;
+.dashboard-header {
+  margin-bottom: 1.5rem;
 }
-.pagination {
-  display: flex;
-  justify-content: center;
-  margin: 20px 0;
-}
-
-.pagination button {
-  margin: 0 5px;
-  padding: 5px 10px;
-  border: none;
-  background-color: #3880ff;
-  color: white;
-  cursor: pointer;
-}
-
-.pagination button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-.pagination button.active {
-  background-color: #0056b3;
-}
-
-.centered-col,
-.centered-col-2 {
-  text-align: center;
-  padding: 10px;
-  border: 1px solid #ccc; /* Adds the grid lines */
-}
-
-IonRow {
-  border-bottom: 1px solid #ccc; /* Horizontal grid lines */
-}
-
-IonCol {
-  border-right: 1px solid #ccc; /* Vertical grid lines */
-}
-
-IonCol:last-child {
-  border-right: none; /* No border on the last column */
-}
-
-IonRow:last-child {
-  border-bottom: none; /* No border on the last row */
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  margin-top: 20px;
-  padding: 10px;
-}
-
-.pagination button {
-  margin: 0 5px;
-  padding: 8px 10px;
-  border: none;
-  background-color: #007bff;
-  color: white;
-  cursor: pointer;
-}
-
-.pagination button.active {
-  background-color: #0056b3;
-}
-
-.pagination button[disabled] {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-/* Dashboard.css */
-
-/* General layout */
-.centered-col,
-.centered-col-2 {
-  text-align: center;
-  font-size: 16px; /* Default font size for desktop */
-}
-
-/* Button Styling */
-IonButton {
-  font-size: 16px; /* Default font size for buttons */
-}
-
-/* Media query for mobile devices (width < 600px) */
-@media only screen and (max-width: 600px) {
-  /* Make font size smaller on mobile */
-  .centered-col,
-  .centered-col-2 {
-    font-size: 12px;
-  }
-
-  /* Adjust padding and margin for mobile view */
-  IonInput {
-    margin: 10px;
-    font-size: 14px;
-  }
-
-  /* Ensure buttons are easily clickable */
-  IonButton {
-    font-size: 14px;
-    padding: 12px;
-  }
-
-  /* Grid columns should stack vertically on mobile */
-  IonCol {
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  table {
     display: block;
-    width: 100%;
-    margin-bottom: 10px;
-  }
-
-  /* Grid layout should stack rows on small screens */
-  IonGrid {
-    padding: 5px;
-  }
-
-  /* Reduce the width of the content */
-  IonContent {
-    padding: 10px;
+    overflow-x: auto;
+    white-space: nowrap;
   }
 }

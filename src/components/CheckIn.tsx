@@ -27,6 +27,9 @@ import { notifySuccess, notifyError } from "../utils/notify";
 import { SelectChangeEvent } from "@mui/material";
 import "./Checkin.css";
 
+const apiBaseUrl =
+  "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api";
+
 const CheckIn: React.FC = () => {
   const [workerName, setWorkerName] = useState("");
   const [workerID, setWorkerID] = useState("");
@@ -41,9 +44,7 @@ const CheckIn: React.FC = () => {
   const history = useHistory();
 
   useEffect(() => {
-    fetch(
-      "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/blocks"
-    )
+    fetch(apiBaseUrl + "/blocks")
       .then((response) => response.json())
       .then((data) => setBlocks(data))
       .catch((error) => {
