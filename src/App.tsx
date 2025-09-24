@@ -3,6 +3,7 @@ import { IonApp, IonRouterOutlet, setupIonicReact } from "@ionic/react";
 import { IonReactRouter } from "@ionic/react-router";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
+import WorkerTotalsPage from "./pages/WorkerTotalsPage";
 import CheckIn from "./components/CheckIn";
 import CheckOut from "./components/CheckOut";
 import PieceWork from "./components/PieceWork_1";
@@ -30,7 +31,6 @@ import "@ionic/react/css/typography.css";
 // Tailwind css
 // import "./theme/tailwind.css";
 import "tailwindcss/base.css";
-
 import "tailwindcss/components.css";
 
 /* Global CSS for the whole app */
@@ -38,46 +38,96 @@ import "./App.css";
 
 /* Theme variables */
 import "./theme/variables.css";
+import Sidebar from "./components/dashboard/Sidebar";
+import DashboardLayout from "./components/layout/DashboardLayout";
 
 setupIonicReact();
 
-const App: React.FC = () => (
-  <IonApp>
-    <IonReactRouter>
-      <IonRouterOutlet className=" bg-white">
-        <Route exact path="/home">
-          <Home />
-        </Route>
-        <Route exact path="/">
-          <Redirect to="/home" />
-        </Route>
-        <Route exact path="/dashboard">
-          <Dashboard />
-        </Route>
-        <Route exact path="/checkin">
-          <CheckIn />
-        </Route>
-        <Route exact path="/checkout">
-          <CheckOut />
-        </Route>
-        <Route exact path="/piecework_1">
-          <PieceWork />
-        </Route>
-        <Route exact path="/piecework-2">
-          <PieceWork_2 />
-        </Route>
-        <Route exact path="/register">
-          <Register />
-        </Route>
-        <Route exact path="/monitor-clockins">
-          <MonitorClockInOut />
-        </Route>
-        <Route exact path="/clocks">
-          <ClockDashboard />
-        </Route>
-      </IonRouterOutlet>
-    </IonReactRouter>
-  </IonApp>
-);
+const App: React.FC = () => {
+  return (
+    <IonApp>
+      <IonReactRouter>
+        <div className="flex h-screen bg-gray-50">
+          {/* Sidebar - only show on certain routes */}
+          <Route
+            path="/(dashboard|home|checkin|checkout|workerTotalsPage|monitor-clockins|clocks|piecework)"
+            component={Sidebar}
+          />
+
+          {/* Main content area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <IonRouterOutlet className="flex-1 bg-white ml-0 md:ml-64">
+              <Route exact path="/home">
+                <div className="min-h-screen">
+                  <Home />
+                </div>
+              </Route>
+
+              <Route exact path="/">
+                <Redirect to="/home" />
+              </Route>
+
+              <Route exact path="/dashboard">
+                <div className="min-h-screen">
+                  <DashboardLayout>
+                    <Dashboard />
+                  </DashboardLayout>
+                </div>
+              </Route>
+
+              <Route exact path="/checkin">
+                <div className="min-h-screen">
+                  <CheckIn />
+                </div>
+              </Route>
+
+              <Route exact path="/checkout">
+                <div className="min-h-screen">
+                  <CheckOut />
+                </div>
+              </Route>
+
+              <Route exact path="/piecework_1">
+                <div className="min-h-screen">
+                  <PieceWork />
+                </div>
+              </Route>
+
+              <Route exact path="/piecework-2">
+                <div className="min-h-screen">
+                  <PieceWork_2 />
+                </div>
+              </Route>
+
+              <Route exact path="/register">
+                <div className="min-h-screen">
+                  <Register />
+                </div>
+              </Route>
+
+              <Route exact path="/monitor-clockins">
+                <div className="min-h-screen">
+                  <MonitorClockInOut />
+                </div>
+              </Route>
+
+              <Route exact path="/clocks">
+                <div className="min-h-screen">
+                  <ClockDashboard />
+                </div>
+              </Route>
+
+              <Route exact path="/workerTotalsPage">
+                <div className="min-h-screen">
+                  <WorkerTotalsPage />
+                </div>
+              </Route>
+            </IonRouterOutlet>
+          </div>
+        </div>
+      </IonReactRouter>
+    </IonApp>
+  );
+};
 
 export default App;

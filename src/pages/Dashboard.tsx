@@ -8,18 +8,16 @@ import {
   IonAlert,
 } from "@ionic/react";
 import WorkerBlockWidget from "../components/dashboard/widgets/WorkerBlockWidget";
-import {
-  fetchData,
-  getWorkerBlockData,
-  WorkerBlockData,
-} from "../utils/mockData";
+import { WorkerBlockData } from "../utils/mockData";
 import { ApiService } from "../services/api";
 import "./Dashboard.css";
+
 const Dashboard: React.FC = () => {
   const [workerBlockData, setWorkerBlockData] = useState<WorkerBlockData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAlert, setShowAlert] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -28,22 +26,23 @@ const Dashboard: React.FC = () => {
       const data = await ApiService.getWorkerBlocks();
       setWorkerBlockData(data);
     } catch (err) {
-      console.error("Failed to fetch from API, falling back to mock data", err);
-      setError("Failed to connect to the server. Showing sample data instead.");
+      console.error("Failed to fetch from API", err);
+      setError("Failed to connect to the server.");
       setShowAlert(true);
-      // Fallback to mock data
-      const mockData = await fetchData(getWorkerBlockData, 500);
-      setWorkerBlockData(mockData);
+      setWorkerBlockData([]); // Clear data on error
     } finally {
       setLoading(false);
     }
   }, []);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
+
   const handleRefresh = () => {
     loadData();
   };
+
   return (
     <IonPage>
       <IonHeader>
@@ -83,4 +82,5 @@ const Dashboard: React.FC = () => {
     </IonPage>
   );
 };
+
 export default Dashboard;
