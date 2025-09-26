@@ -27,7 +27,7 @@ const Dashboard: React.FC = () => {
       setWorkerBlockData(data);
     } catch (err) {
       console.error("Failed to fetch from API", err);
-      setError("Failed to connect to the server.");
+      setError("They are no available workers.");
       setShowAlert(true);
       setWorkerBlockData([]); // Clear data on error
     } finally {

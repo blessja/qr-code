@@ -38,7 +38,7 @@ const Sidebar = () => {
     {
       id: "dashboard",
       icon: <LayoutDashboardIcon size={20} />,
-      label: "Dashboard",
+      label: "Current Check-Ins",
       path: "/dashboard",
     },
     {
