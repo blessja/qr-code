@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useHistory, useLocation } from "react-router-dom";
 import {
   HomeIcon,
@@ -12,11 +12,14 @@ import {
   ClockIcon,
   UserCheckIcon,
   UserXIcon,
+  MenuIcon,
+  XIcon,
 } from "lucide-react";
 
 const Sidebar = () => {
   const history = useHistory();
   const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Determine active item based on current route
   const getActiveItem = () => {
@@ -108,34 +111,59 @@ const Sidebar = () => {
 
   const handleItemClick = (item: any) => {
     if (item.action === "logout") {
-      // Handle logout logic here
       console.log("Logout clicked");
-      // You might want to clear user session, redirect to login, etc.
+      setIsMobileMenuOpen(false);
       return;
     }
 
     setActiveItem(item.id);
+    setIsMobileMenuOpen(false); // Close mobile menu when item is clicked
     if (item.path) {
       history.push(item.path);
     }
   };
 
   // Update active item when route changes
-  React.useEffect(() => {
+  useEffect(() => {
     setActiveItem(getActiveItem());
   }, [location.pathname]);
 
-  return (
-    <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col fixed left-0 top-0 h-full z-10">
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center">
-          <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold mr-2">
-            GO
-          </div>
-          <span className="text-xl font-semibold">DataBoard</span>
-        </div>
-      </div>
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const sidebar = document.getElementById("mobile-sidebar");
+      const hamburger = document.getElementById("hamburger-button");
 
+      if (
+        isMobileMenuOpen &&
+        sidebar &&
+        !sidebar.contains(event.target as Node) &&
+        hamburger &&
+        !hamburger.contains(event.target as Node)
+      ) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMobileMenuOpen]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isMobileMenuOpen]);
+
+  const renderMenuItems = () => (
+    <>
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="px-2">
           <div className="space-y-1">
@@ -179,7 +207,60 @@ const Sidebar = () => {
           </div>
         </nav>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile Hamburger Button */}
+      <button
+        id="hamburger-button"
+        className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+      >
+        {isMobileMenuOpen ? (
+          <XIcon size={24} className="text-gray-600" />
+        ) : (
+          <MenuIcon size={24} className="text-gray-600" />
+        )}
+      </button>
+
+      {/* Desktop Sidebar */}
+      <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col fixed left-0 top-0 h-full z-10">
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center">
+            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold mr-2">
+              GO
+            </div>
+            <span className="text-xl font-semibold">DataBoard</span>
+          </div>
+        </div>
+        {renderMenuItems()}
+      </aside>
+
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" />
+      )}
+
+      {/* Mobile Sidebar */}
+      <aside
+        id="mobile-sidebar"
+        className={`md:hidden fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-50 transform transition-transform duration-300 ease-in-out ${
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        } flex flex-col`}
+      >
+        <div className="p-4 border-b border-gray-200 mt-12">
+          <div className="flex items-center">
+            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold mr-2">
+              GO
+            </div>
+            <span className="text-xl font-semibold">DataBoard</span>
+          </div>
+        </div>
+        {renderMenuItems()}
+      </aside>
+    </>
   );
 };
 

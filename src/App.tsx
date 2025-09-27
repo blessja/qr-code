@@ -11,6 +11,7 @@ import PieceWork_2 from "./components/PieceWork_2";
 import Register from "./components/Register";
 import MonitorClockInOut from "./pages/MonitorClockInOut";
 import ClockDashboard from "./pages/ClockInOutDashboard";
+import { useLocation } from "react-router-dom";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
