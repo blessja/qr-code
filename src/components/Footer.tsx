@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
-export function Footer() {
+
+export const Footer: React.FC = () => {
   return (
     <footer className="bg-gray-100 shadow-inner">
       <motion.div
@@ -31,4 +32,6 @@ export function Footer() {
       </motion.div>
     </footer>
   );
-}
+};
+
+export default Footer;

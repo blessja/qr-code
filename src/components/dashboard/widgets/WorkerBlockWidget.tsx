@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { WorkerBlockData } from "../../../utils/mockData";
 import { SearchIcon, RefreshCwIcon } from "lucide-react";
+
 interface WorkerBlockWidgetProps {
   title: string;
   data: WorkerBlockData[];
   isLoading?: boolean;
   onRefresh?: () => void;
 }
+
 const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
   title,
   data,
@@ -16,42 +18,31 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBlock, setFilterBlock] = useState<string>("all");
   const [filterJobType, setFilterJobType] = useState<string>("all");
+
   // Extract unique block names and job types for filters
   const uniqueBlocks = ["all", ...new Set(data.map((item) => item.blockName))];
   const uniqueJobTypes = [
     "all",
     ...new Set(data.map((item) => item.job_type).filter(Boolean)),
   ];
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+
   // Filter data based on search term and filters
   const filteredData = data.filter((item) => {
     const matchesSearch =
       item.workerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.workerID.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.rowNumber.toLowerCase().includes(searchTerm.toLowerCase());
+      item.rowNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.blockName.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesBlock =
       filterBlock === "all" || item.blockName === filterBlock;
+
     const matchesJobType =
       filterJobType === "all" || item.job_type === filterJobType;
+
     return matchesSearch && matchesBlock && matchesJobType;
   });
-  // Calculate completion percentage
-  const getCompletionPercentage = (
-    stockCount: number,
-    remainingStocks: number
-  ) => {
-    if (stockCount === 0) return 0;
-    return Math.round(((stockCount - remainingStocks) / stockCount) * 100);
-  };
+
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 animate-pulse">
@@ -74,6 +65,7 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
       </div>
     );
   }
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100">
       <div className="p-6 border-b border-gray-200">
@@ -89,6 +81,7 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
             </button>
           )}
         </div>
+
         <div className="mt-4 flex flex-col md:flex-row gap-4">
           {/* Search */}
           <div className="relative flex-1">
@@ -98,11 +91,12 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
             <input
               type="text"
               className="block w-full pl-10 pr-3 py-2 text-black bg-white border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Search workers, IDs, rows..."
+              placeholder="Search workers, IDs, blocks, rows..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
           {/* Block filter */}
           <div className="w-full md:w-48">
             <select
@@ -117,6 +111,7 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
               ))}
             </select>
           </div>
+
           {/* Job Type filter */}
           <div className="w-full md:w-48">
             <select
@@ -135,6 +130,7 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
           </div>
         </div>
       </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -161,25 +157,27 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Start Time
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Stock Progress
+                Status
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredData.length > 0 ? (
               filteredData.map((item, index) => {
-                const completionPercentage = getCompletionPercentage(
-                  item.stockCount,
-                  item.remainingStocks
-                );
+                // Determine status based on remaining stocks
+                let status = "In Progress";
+                let statusColor = "bg-green-100 text-green-800";
+
+                if (item.remainingStocks === 0) {
+                  status = "Completed";
+                  statusColor = "bg-blue-100 text-blue-800";
+                } else if (item.remainingStocks === item.stockCount) {
+                  status = "Not Started";
+                  statusColor = "bg-gray-100 text-gray-800";
+                }
+
                 return (
-                  <tr key={index}>
+                  <tr key={index} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {item.blockName}
@@ -208,25 +206,11 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatDate(item.startTime)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
-                          <div
-                            className="bg-blue-600 h-2.5 rounded-full"
-                            style={{
-                              width: `${completionPercentage}%`,
-                            }}
-                          ></div>
-                        </div>
-                        <span className="text-sm text-gray-900">
-                          {item.stockCount - item.remainingStocks}/
-                          {item.stockCount}
-                        </span>
-                      </div>
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${statusColor}`}
+                      >
+                        {status}
+                      </span>
                     </td>
                   </tr>
                 );
@@ -234,7 +218,7 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
             ) : (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={4}
                   className="px-6 py-4 text-center text-sm text-gray-500"
                 >
                   No results found
@@ -244,7 +228,18 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Footer with count */}
+      <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+        <div className="text-sm text-gray-500">
+          Showing {filteredData.length} of {data.length} assignments
+          {(searchTerm || filterBlock !== "all" || filterJobType !== "all") && (
+            <span className="ml-2 text-blue-600">(filtered)</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
+
 export default WorkerBlockWidget;

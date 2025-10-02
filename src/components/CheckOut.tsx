@@ -42,9 +42,7 @@ const CheckOut: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
-    fetch(
-      "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/blocks"
-    )
+    fetch("https://farm-server-02-961069822730.europe-west1.run.app/api/blocks")
       .then((response) => response.json())
       .then((data) => {
         setBlocks(data);
@@ -56,7 +54,7 @@ const CheckOut: React.FC = () => {
   useEffect(() => {
     if (blockName) {
       fetch(
-        `https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/block/${blockName}/rows`
+        `https://farm-server-02-961069822730.europe-west1.run.app/api/block/${blockName}/rows`
       )
         .then((response) => response.json())
         .then((data) => {
@@ -78,24 +76,21 @@ const CheckOut: React.FC = () => {
 
       console.log("Worker data parsed and set:", workerData);
 
-      // Fetch the check-in details to prefill blockName, rowNumber, jobType, and stockCount
       const response = await fetch(
-        `https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/worker/${workerData.workerID}/current-checkin`
+        `https://farm-server-02-961069822730.europe-west1.run.app/api/worker/${workerData.workerID}/current-checkin`
       );
 
       if (response.ok) {
         const data = await response.json();
 
         if (Array.isArray(data) && data.length > 0) {
-          const checkinData = data[0]; // Access the first object in the array
+          const checkinData = data[0];
 
-          // Set jobType using the correct key from the response
           if (checkinData.job_type) {
             setJobType(checkinData.job_type);
             console.log("Fetched jobType:", checkinData.job_type);
           }
 
-          // Set other data
           if (checkinData.blockName) {
             setBlockName(checkinData.blockName);
             console.log("Fetched blockName:", checkinData.blockName);
@@ -106,9 +101,13 @@ const CheckOut: React.FC = () => {
             console.log("Fetched rowNumber:", checkinData.rowNumber);
           }
 
-          if (checkinData.stockCount) {
-            setStockCount(checkinData.stockCount);
-            console.log("Fetched stockCount:", checkinData.stockCount);
+          // FIX: Use remainingStocks instead of stockCount
+          if (checkinData.remainingStocks !== undefined) {
+            setStockCount(checkinData.remainingStocks);
+            console.log(
+              "Fetched remaining stocks:",
+              checkinData.remainingStocks
+            );
           }
         }
       } else {
@@ -158,7 +157,7 @@ const CheckOut: React.FC = () => {
 
     try {
       const response = await fetch(
-        "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/checkout",
+        "https://farm-server-02-961069822730.europe-west1.run.app/api/checkout",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -208,7 +207,7 @@ const CheckOut: React.FC = () => {
   ): Promise<number> => {
     try {
       const response = await fetch(
-        `https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api/worker/${workerID}/row/${rowNumber}/remaining-stocks`
+        `https://farm-server-02-961069822730.europe-west1.run.app/api/worker/${workerID}/row/${rowNumber}/remaining-stocks`
       );
       if (response.ok) {
         const data = await response.json();

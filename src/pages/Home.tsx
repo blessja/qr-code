@@ -6,6 +6,7 @@ import { useIonRouter } from "@ionic/react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import Cards from "../components/Cards";
+import LandingPage from "./LandingPage";
 
 const Home: React.FC = () => {
   const router = useIonRouter(); // Get the router instance
@@ -38,7 +39,8 @@ const Home: React.FC = () => {
     <IonPage>
       <IonContent>
         <Header />
-        <Cards />
+        <LandingPage />
+        {/* <Cards /> */}
         <Footer />
       </IonContent>
     </IonPage>

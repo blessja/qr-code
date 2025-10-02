@@ -1,5 +1,5 @@
 import axios from 'axios'
-// import { WorkerBlockData } from '../utils/mockData'
+
 // API configuration
 const API_CONFIG = {
   baseURL: 'https://farm-server-02-961069822730.europe-west1.run.app/api',
@@ -8,14 +8,18 @@ const API_CONFIG = {
     'Content-Type': 'application/json',
   },
 }
+
+// Export the base URL for components that don't need the full ApiService
+export const API_BASE_URL = API_CONFIG.baseURL
+
 // Create axios instance with configuration
 const apiClient = axios.create(API_CONFIG)
+
 // API Service class
 export class ApiService {
   // Fetch worker block data from the API
   static async getWorkerBlocks(): Promise<any[]> {
     try {
-      // Assuming the endpoint is /worker-blocks - adjust as needed based on your API
       const response = await apiClient.get('/workers/current-checkins')
       return response.data
     } catch (error) {
@@ -23,10 +27,10 @@ export class ApiService {
       throw error
     }
   }
-  //get workers data
+
+  // Get workers data
   static async getWorkers(): Promise<any[]> {
     try {
-      
       const response = await apiClient.get('/workers')
       return response.data
     } catch (error) {
@@ -34,10 +38,32 @@ export class ApiService {
       throw error
     }
   }
-  // Add more API methods as needed
-  // For example:
-  // static async updateWorkerBlock(id: string, data: Partial<any>): Promise<any> {
-  //   const response = await apiClient.put(`/worker-blocks/${id}`, data);
-  //   return response.data;
-  // }
+
+  // Get blocks
+  static async getBlocks(): Promise<string[]> {
+    try {
+      const response = await apiClient.get('/blocks')
+      return response.data
+    } catch (error) {
+      console.error('Error fetching blocks:', error)
+      throw error
+    }
+  }
+
+  // Worker check-in
+  static async checkIn(data: {
+    workerID: string
+    workerName: string
+    blockName: string
+    rowNumber: string
+    jobType: string
+  }): Promise<any> {
+    try {
+      const response = await apiClient.post('/checkin', data)
+      return response.data
+    } catch (error) {
+      console.error('Error during check-in:', error)
+      throw error
+    }
+  }
 }

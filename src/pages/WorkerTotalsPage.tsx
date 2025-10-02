@@ -3,13 +3,10 @@ import {
   RefreshCw,
   Download,
   Users,
-  Clock,
   TrendingUp,
-  FileText,
-  AlertTriangle,
-  Bell,
-  Eye,
-  X,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   IonContent,
@@ -23,10 +20,6 @@ import {
   IonSelectOption,
   IonItem,
   IonLabel,
-  IonBadge,
-  IonModal,
-  IonList,
-  IonAlert,
 } from "@ionic/react";
 import { ApiService } from "../services/api";
 
@@ -35,13 +28,11 @@ interface WorkerData {
   workerID: string;
   name: string;
   total_stock_count: number;
-  jobType?: string;
   blocks: Array<{
     block_name: string;
     rows: Array<{
       row_number: string;
       stock_count: number;
-      time_spent: number; // in minutes from backend
       date: string;
       day_of_week: string;
       job_type?: string;
@@ -50,25 +41,21 @@ interface WorkerData {
   }>;
 }
 
-interface RowAlert {
-  workerId: string;
-  workerName: string;
+interface ProcessedRow {
   blockName: string;
   rowNumber: string;
-  timeSpentHours: number;
-  timeSpentMinutes: number;
-  date: string;
-  jobType?: string;
+  jobType: string;
+  dailyTotals: { [date: string]: number };
+  total: number;
 }
 
-interface ProcessedWorkerData extends WorkerData {
-  totalHours: number;
-  daysWorked: number;
-  position: number;
-  efficiency: string;
-  primaryJobType: string;
-  workDates: string[];
-  longWorkRowsCount: number; // Count of rows worked > 2 hours
+interface ProcessedWorkerData {
+  _id: string;
+  workerID: string;
+  name: string;
+  rows: ProcessedRow[];
+  dailyTotals: { [date: string]: number };
+  grandTotal: number;
 }
 
 const WorkerTotalsPage: React.FC = () => {
@@ -78,146 +65,86 @@ const WorkerTotalsPage: React.FC = () => {
   );
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [selectedEfficiency, setSelectedEfficiency] = useState<string>("all");
+  const [selectedBlock, setSelectedBlock] = useState<string>("all");
+  const [selectedJobType, setSelectedJobType] = useState<string>("all");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [allDates, setAllDates] = useState<string[]>([]);
+  const [uniqueBlocks, setUniqueBlocks] = useState<string[]>([]);
+  const [uniqueJobTypes, setUniqueJobTypes] = useState<string[]>([]);
 
-  // Notification system
-  const [rowAlerts, setRowAlerts] = useState<RowAlert[]>([]);
-  const [showAlertsModal, setShowAlertsModal] = useState(false);
-  const [showAlertDetails, setShowAlertDetails] = useState(false);
-  const [selectedAlert, setSelectedAlert] = useState<RowAlert | null>(null);
+  // Pagination for dates
+  const [currentDatePage, setCurrentDatePage] = useState(0);
+  const datesPerPage = 5; // Show 5 days at a time
 
-  // Get primary job type for a worker
-  const getPrimaryJobType = (worker: WorkerData): string => {
-    if (worker.jobType) return worker.jobType.toLowerCase();
-
-    const jobTypes: { [key: string]: number } = {};
-    worker.blocks.forEach((block) => {
-      block.rows.forEach((row) => {
-        const jobType = (row.job_type || "other").toLowerCase();
-        jobTypes[jobType] = (jobTypes[jobType] || 0) + 1;
-      });
-    });
-
-    const primaryJobType = Object.keys(jobTypes).reduce(
-      (a, b) => (jobTypes[a] > jobTypes[b] ? a : b),
-      "other"
-    );
-
-    return primaryJobType || "other";
-  };
-
-  // Get work dates for a worker
-  const getWorkerWorkDates = (worker: WorkerData): string[] => {
-    const workDates = new Set<string>();
-    worker.blocks.forEach((block) => {
-      block.rows.forEach((row) => {
-        if (row.date) {
-          const dateOnly = row.date.split("T")[0];
-          workDates.add(dateOnly);
-        }
-      });
-    });
-    return Array.from(workDates).sort();
-  };
-
-  // Check for rows with excessive work time (>2 hours = 120 minutes)
-  const checkForLongWorkSessions = (workers: WorkerData[]): RowAlert[] => {
-    const alerts: RowAlert[] = [];
-
-    workers.forEach((worker) => {
-      worker.blocks.forEach((block) => {
-        block.rows.forEach((row) => {
-          const timeInMinutes = row.time_spent || 0;
-          const timeInHours = timeInMinutes / 60;
-
-          // Alert for sessions longer than 2 hours
-          if (timeInHours > 2) {
-            alerts.push({
-              workerId: worker.workerID,
-              workerName: worker.name,
-              blockName: block.block_name,
-              rowNumber: row.row_number,
-              timeSpentHours: Math.floor(timeInHours),
-              timeSpentMinutes: Math.round(timeInMinutes % 60),
-              date: row.date,
-              jobType: row.job_type,
-            });
-          }
-        });
-      });
-    });
-
-    // Sort by time spent (longest first)
-    return alerts.sort(
-      (a, b) =>
-        b.timeSpentHours * 60 +
-        b.timeSpentMinutes -
-        (a.timeSpentHours * 60 + a.timeSpentMinutes)
-    );
-  };
-
-  // Process worker data using actual time_spent from check-in/out
   const processWorkerData = (
     rawWorkers: WorkerData[]
   ): ProcessedWorkerData[] => {
-    return rawWorkers
-      .map((worker) => {
-        const primaryJobType = getPrimaryJobType(worker);
-        const workDates = getWorkerWorkDates(worker);
-        const daysWorked = workDates.length;
+    const datesSet = new Set<string>();
+    const blocksSet = new Set<string>();
+    const jobTypesSet = new Set<string>();
 
-        // Calculate total hours from time_spent (convert minutes to hours)
-        const totalMinutes = worker.blocks.reduce((blockSum, block) => {
-          return (
-            blockSum +
-            block.rows.reduce((rowSum, row) => {
-              return rowSum + (row.time_spent || 0);
-            }, 0)
+    const processed = rawWorkers.map((worker) => {
+      const rows: ProcessedRow[] = [];
+      const workerDailyTotals: { [date: string]: number } = {};
+
+      worker.blocks.forEach((block) => {
+        blocksSet.add(block.block_name);
+
+        block.rows.forEach((row) => {
+          const dateOnly = row.date.split("T")[0];
+          datesSet.add(dateOnly);
+          const jobType = (row.job_type || "other").toLowerCase();
+          jobTypesSet.add(jobType);
+
+          let rowEntry = rows.find(
+            (r) =>
+              r.blockName === block.block_name && r.rowNumber === row.row_number
           );
-        }, 0);
 
-        const totalHours = totalMinutes / 60; // Convert to hours
+          if (!rowEntry) {
+            rowEntry = {
+              blockName: block.block_name,
+              rowNumber: row.row_number,
+              jobType: jobType,
+              dailyTotals: {},
+              total: 0,
+            };
+            rows.push(rowEntry);
+          }
 
-        // Count rows with > 2 hours work
-        const longWorkRowsCount = worker.blocks.reduce((count, block) => {
-          return (
-            count +
-            block.rows.filter((row) => (row.time_spent || 0) > 120).length
-          );
-        }, 0);
+          rowEntry.dailyTotals[dateOnly] =
+            (rowEntry.dailyTotals[dateOnly] || 0) + row.stock_count;
+          rowEntry.total += row.stock_count;
 
-        // Calculate position (vines per hour)
-        const position =
-          totalHours > 0 ? worker.total_stock_count / totalHours : 0;
-
-        // Determine efficiency rating
-        let efficiency = "Low";
-        if (position > 50) efficiency = "Excellent";
-        else if (position > 30) efficiency = "High";
-        else if (position > 15) efficiency = "Medium";
-
-        return {
-          ...worker,
-          primaryJobType,
-          workDates,
-          daysWorked,
-          totalHours: Math.round(totalHours * 100) / 100,
-          position: Math.round(position * 100) / 100,
-          efficiency,
-          longWorkRowsCount,
-        };
-      })
-      .sort((a, b) => {
-        if (b.total_stock_count !== a.total_stock_count) {
-          return b.total_stock_count - a.total_stock_count;
-        }
-        return b.totalHours - a.totalHours;
+          workerDailyTotals[dateOnly] =
+            (workerDailyTotals[dateOnly] || 0) + row.stock_count;
+        });
       });
+
+      return {
+        _id: worker._id,
+        workerID: worker.workerID,
+        name: worker.name,
+        rows: rows.sort((a, b) => {
+          if (a.blockName !== b.blockName) {
+            return a.blockName.localeCompare(b.blockName);
+          }
+          return a.rowNumber.localeCompare(b.rowNumber);
+        }),
+        dailyTotals: workerDailyTotals,
+        grandTotal: worker.total_stock_count,
+      };
+    });
+
+    const sortedDates = Array.from(datesSet).sort();
+    setAllDates(sortedDates);
+    setUniqueBlocks(Array.from(blocksSet).sort());
+    setUniqueJobTypes(Array.from(jobTypesSet).sort());
+
+    return processed.sort((a, b) => b.grandTotal - a.grandTotal);
   };
 
-  // Fetch workers data
   const fetchWorkers = async () => {
     setLoading(true);
     setError(null);
@@ -225,11 +152,8 @@ const WorkerTotalsPage: React.FC = () => {
     try {
       const data: WorkerData[] = await ApiService.getWorkers();
       const processedData = processWorkerData(data);
-      const alerts = checkForLongWorkSessions(data);
-
       setWorkers(processedData);
-      setRowAlerts(alerts);
-      applyFilters(processedData, searchText, selectedEfficiency);
+      applyFilters(processedData, searchText, selectedBlock, selectedJobType);
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching workers:", error);
@@ -239,130 +163,210 @@ const WorkerTotalsPage: React.FC = () => {
     }
   };
 
-  // Apply filters
   const applyFilters = (
     workerList: ProcessedWorkerData[],
     search: string,
-    efficiency: string
+    block: string,
+    jobType: string
   ) => {
-    let filtered = [...workerList];
+    let filtered = workerList
+      .map((worker) => {
+        let filteredRows = worker.rows;
 
-    if (search && search.trim()) {
-      const searchTerm = search.toLowerCase().trim();
-      filtered = filtered.filter(
-        (worker) =>
-          worker.name.toLowerCase().includes(searchTerm) ||
-          worker.workerID.toLowerCase().includes(searchTerm) ||
-          worker.primaryJobType.toLowerCase().includes(searchTerm)
-      );
-    }
+        if (search && search.trim()) {
+          const searchTerm = search.toLowerCase().trim();
+          filteredRows = filteredRows.filter(
+            (row) =>
+              row.blockName.toLowerCase().includes(searchTerm) ||
+              row.rowNumber.toLowerCase().includes(searchTerm) ||
+              worker.name.toLowerCase().includes(searchTerm) ||
+              worker.workerID.toLowerCase().includes(searchTerm)
+          );
+        }
 
-    if (efficiency && efficiency !== "all") {
-      filtered = filtered.filter((worker) => worker.efficiency === efficiency);
-    }
+        if (block && block !== "all") {
+          filteredRows = filteredRows.filter((row) => row.blockName === block);
+        }
+
+        if (jobType && jobType !== "all") {
+          filteredRows = filteredRows.filter((row) => row.jobType === jobType);
+        }
+
+        return { ...worker, rows: filteredRows };
+      })
+      .filter((worker) => worker.rows.length > 0);
 
     setFilteredWorkers(filtered);
   };
 
-  // Handle search
   const handleSearch = (text: string) => {
     setSearchText(text);
-    applyFilters(workers, text, selectedEfficiency);
+    applyFilters(workers, text, selectedBlock, selectedJobType);
   };
 
-  // Handle efficiency filter
-  const handleEfficiencyFilter = (efficiency: string) => {
-    setSelectedEfficiency(efficiency);
-    applyFilters(workers, searchText, efficiency);
+  const handleBlockFilter = (block: string) => {
+    setSelectedBlock(block);
+    applyFilters(workers, searchText, block, selectedJobType);
   };
 
-  // View alert details
-  const viewAlertDetails = (alert: RowAlert) => {
-    setSelectedAlert(alert);
-    setShowAlertDetails(true);
+  const handleJobTypeFilter = (jobType: string) => {
+    setSelectedJobType(jobType);
+    applyFilters(workers, searchText, selectedBlock, jobType);
   };
 
   useEffect(() => {
     fetchWorkers();
-    const interval = setInterval(fetchWorkers, 300000); // 5 minutes
+    const interval = setInterval(fetchWorkers, 5 * 60 * 1000); // Refresh every 5 minutes
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate summary statistics
-  const totalWorkers = filteredWorkers.length;
-  const totalVines = filteredWorkers.reduce(
-    (sum, worker) => sum + worker.total_stock_count,
-    0
-  );
-  const totalHours = filteredWorkers.reduce(
-    (sum, worker) => sum + worker.totalHours,
-    0
-  );
-  const averagePosition = totalHours > 0 ? totalVines / totalHours : 0;
-  const totalAlerts = rowAlerts.length;
+  // Calculate pagination
+  const totalDatePages = Math.ceil(allDates.length / datesPerPage);
+  const startDateIndex = currentDatePage * datesPerPage;
+  const endDateIndex = Math.min(startDateIndex + datesPerPage, allDates.length);
+  const currentPageDates = allDates.slice(startDateIndex, endDateIndex);
 
-  const exportToPDF = () => {
-    console.log("Exporting to PDF...", filteredWorkers);
-  };
-
-  const getEfficiencyColor = (efficiency: string) => {
-    switch (efficiency) {
-      case "Excellent":
-        return "text-green-600 bg-green-100";
-      case "High":
-        return "text-blue-600 bg-blue-100";
-      case "Medium":
-        return "text-yellow-600 bg-yellow-100";
-      default:
-        return "text-red-600 bg-red-100";
+  const goToNextPage = () => {
+    if (currentDatePage < totalDatePages - 1) {
+      setCurrentDatePage(currentDatePage + 1);
     }
   };
 
-  const formatTime = (hours: number, minutes: number) => {
-    return `${hours}h ${minutes}m`;
+  const goToPreviousPage = () => {
+    if (currentDatePage > 0) {
+      setCurrentDatePage(currentDatePage - 1);
+    }
+  };
+
+  const totalWorkers = filteredWorkers.length;
+  const totalVines = filteredWorkers.reduce(
+    (sum, worker) => sum + worker.grandTotal,
+    0
+  );
+
+  const exportToPDF = () => {
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Worker Daily Totals Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { color: #1f2937; margin-bottom: 10px; }
+          .meta { color: #6b7280; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 11px; }
+          th { background-color: #f9fafb; font-weight: 600; }
+          .text-center { text-align: center; }
+          .font-bold { font-weight: bold; }
+          .bg-blue { background-color: #eff6ff; }
+          .badge { display: inline-block; padding: 2px 6px; background-color: #dbeafe; 
+                   color: #1e40af; border-radius: 9999px; font-size: 9px; margin-right: 3px; }
+        </style>
+      </head>
+      <body>
+        <h1>Worker Daily Totals Report</h1>
+        <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+        <div class="meta">Total Workers: ${totalWorkers} | Total Vines: ${totalVines.toLocaleString()}</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Worker</th>
+              <th>Blocks</th>
+              <th>Rows</th>
+              <th>Job Types</th>
+              ${allDates
+                .map(
+                  (date) =>
+                    `<th class="text-center">${new Date(
+                      date
+                    ).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}</th>`
+                )
+                .join("")}
+              <th class="text-center bg-blue">Grand Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredWorkers
+              .map((worker) => {
+                const blocks = [
+                  ...new Set(worker.rows.map((r) => r.blockName)),
+                ].join(", ");
+                const rows = [...new Set(worker.rows.map((r) => r.rowNumber))]
+                  .sort((a, b) => parseInt(a) - parseInt(b))
+                  .join(", ");
+                const jobTypes = [...new Set(worker.rows.map((r) => r.jobType))]
+                  .map((jt) => `<span class="badge">${jt}</span>`)
+                  .join("");
+
+                return `
+                <tr>
+                  <td><strong>${worker.name}</strong><br/><small>${
+                  worker.workerID
+                }</small></td>
+                  <td>${blocks}</td>
+                  <td>${rows}</td>
+                  <td>${jobTypes}</td>
+                  ${allDates
+                    .map(
+                      (date) =>
+                        `<td class="text-center">${
+                          worker.dailyTotals[date] || "-"
+                        }</td>`
+                    )
+                    .join("")}
+                  <td class="text-center font-bold bg-blue">${
+                    worker.grandTotal
+                  }</td>
+                </tr>
+              `;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
   };
 
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Worker Performance Totals</IonTitle>
+          <IonTitle>Worker Daily Totals</IonTitle>
         </IonToolbar>
       </IonHeader>
 
       <IonContent className="ion-padding">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-full mx-auto">
           {/* Header Section */}
           <div className="mb-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  Worker Performance Dashboard
+                  Worker Daily Totals
                 </h1>
                 {lastUpdated && (
                   <p className="text-sm text-gray-600 mt-1">
-                    Last updated: {lastUpdated.toLocaleString()} • Using Actual
-                    Check-in/out Times
+                    Last updated: {lastUpdated.toLocaleString()}
                   </p>
                 )}
               </div>
 
               <div className="flex gap-2">
-                {/* Alerts Button */}
-                <IonButton
-                  fill="outline"
-                  color={totalAlerts > 0 ? "warning" : "medium"}
-                  onClick={() => setShowAlertsModal(true)}
-                >
-                  <Bell size={16} />
-                  Alerts
-                  {totalAlerts > 0 && (
-                    <IonBadge color="warning" className="ml-2">
-                      {totalAlerts}
-                    </IonBadge>
-                  )}
-                </IonButton>
-
                 <IonButton
                   fill="outline"
                   onClick={fetchWorkers}
@@ -384,7 +388,7 @@ const WorkerTotalsPage: React.FC = () => {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="flex items-center">
                 <Users className="h-8 w-8 text-blue-600" />
@@ -415,119 +419,109 @@ const WorkerTotalsPage: React.FC = () => {
 
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="flex items-center">
-                <Clock className="h-8 w-8 text-purple-600" />
+                <Calendar className="h-8 w-8 text-purple-600" />
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-600">
-                    Total Hours
+                    Date Range
                   </p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {totalHours.toFixed(1)}
+                  <p className="text-sm font-semibold text-gray-900">
+                    {allDates.length > 0 ? `${allDates.length} days` : "N/A"}
                   </p>
-                  <p className="text-xs text-gray-500">From Check-in/out</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
-              <div className="flex items-center">
-                <FileText className="h-8 w-8 text-orange-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600">
-                    Avg. Position
-                  </p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {averagePosition.toFixed(1)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
-              <div className="flex items-center">
-                <AlertTriangle
-                  className={`h-8 w-8 ${
-                    totalAlerts > 0 ? "text-red-600" : "text-gray-400"
-                  }`}
-                />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600">
-                    Long Sessions
-                  </p>
-                  <p
-                    className={`text-2xl font-semibold ${
-                      totalAlerts > 0 ? "text-red-600" : "text-gray-900"
-                    }`}
-                  >
-                    {totalAlerts}
-                  </p>
-                  <p className="text-xs text-gray-500">&gt;2 hours</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Alert Banner */}
-          {totalAlerts > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
-                  <span className="text-yellow-800 font-medium">
-                    {totalAlerts} workers have sessions longer than 2 hours
-                  </span>
-                </div>
-                <IonButton
-                  fill="clear"
-                  size="small"
-                  color="warning"
-                  onClick={() => setShowAlertsModal(true)}
-                >
-                  View Details
-                </IonButton>
-              </div>
-            </div>
-          )}
-
           {/* Filters Section */}
           <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex-1">
                 <IonSearchbar
                   value={searchText}
                   onIonInput={(e) => handleSearch(e.detail.value!)}
-                  placeholder="Search by worker name, ID, or job type..."
+                  placeholder="Search worker, block, or row..."
                   showClearButton="focus"
                 />
               </div>
 
-              <div className="md:w-48">
-                <IonItem className="mb-0">
-                  <IonLabel>Efficiency Filter</IonLabel>
+              <div>
+                <IonItem>
+                  <IonLabel>Block Filter</IonLabel>
                   <IonSelect
-                    value={selectedEfficiency}
-                    placeholder="All"
-                    onIonChange={(e) => handleEfficiencyFilter(e.detail.value)}
+                    value={selectedBlock}
+                    placeholder="All Blocks"
+                    onIonChange={(e) => handleBlockFilter(e.detail.value)}
                   >
-                    <IonSelectOption value="all">All Levels</IonSelectOption>
-                    <IonSelectOption value="Excellent">
-                      Excellent
-                    </IonSelectOption>
-                    <IonSelectOption value="High">High</IonSelectOption>
-                    <IonSelectOption value="Medium">Medium</IonSelectOption>
-                    <IonSelectOption value="Low">Low</IonSelectOption>
+                    <IonSelectOption value="all">All Blocks</IonSelectOption>
+                    {uniqueBlocks.map((block) => (
+                      <IonSelectOption key={block} value={block}>
+                        {block}
+                      </IonSelectOption>
+                    ))}
+                  </IonSelect>
+                </IonItem>
+              </div>
+
+              <div>
+                <IonItem>
+                  <IonLabel>Job Type Filter</IonLabel>
+                  <IonSelect
+                    value={selectedJobType}
+                    placeholder="All Job Types"
+                    onIonChange={(e) => handleJobTypeFilter(e.detail.value)}
+                  >
+                    <IonSelectOption value="all">All Job Types</IonSelectOption>
+                    {uniqueJobTypes.map((jobType) => (
+                      <IonSelectOption key={jobType} value={jobType}>
+                        {jobType}
+                      </IonSelectOption>
+                    ))}
                   </IonSelect>
                 </IonItem>
               </div>
             </div>
           </div>
 
+          {/* Date Pagination Controls */}
+          {allDates.length > datesPerPage && (
+            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Showing dates {startDateIndex + 1} - {endDateIndex} of{" "}
+                  {allDates.length}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <IonButton
+                    fill="outline"
+                    size="small"
+                    onClick={goToPreviousPage}
+                    disabled={currentDatePage === 0}
+                  >
+                    <ChevronLeft size={16} />
+                    Previous
+                  </IonButton>
+                  <span className="px-4 py-2 text-sm text-gray-700">
+                    Page {currentDatePage + 1} of {totalDatePages}
+                  </span>
+                  <IonButton
+                    fill="outline"
+                    size="small"
+                    onClick={goToNextPage}
+                    disabled={currentDatePage >= totalDatePages - 1}
+                  >
+                    Next
+                    <ChevronRight size={16} />
+                  </IonButton>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Error Message */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-              <div className="flex items-center">
-                <div className="text-red-600 text-sm">
-                  <strong>Error:</strong> {error}
-                </div>
+              <div className="text-red-600 text-sm">
+                <strong>Error:</strong> {error}
               </div>
             </div>
           )}
@@ -538,35 +532,31 @@ const WorkerTotalsPage: React.FC = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Rank
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase sticky left-0 bg-gray-50 z-10">
+                      Worker
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Worker ID
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Blocks
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Rows
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Job Type
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Job Types
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total Vines
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Days Worked
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total Hours
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Position (Vines/Hr)
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Efficiency
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Alerts
+                    {currentPageDates.map((date) => (
+                      <th
+                        key={date}
+                        className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap"
+                      >
+                        {new Date(date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </th>
+                    ))}
+                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase bg-blue-50 sticky right-0 z-10">
+                      Total
                     </th>
                   </tr>
                 </thead>
@@ -574,7 +564,7 @@ const WorkerTotalsPage: React.FC = () => {
                   {loading ? (
                     <tr>
                       <td
-                        colSpan={10}
+                        colSpan={5 + currentPageDates.length}
                         className="px-6 py-4 text-center text-gray-500"
                       >
                         <RefreshCw
@@ -587,75 +577,75 @@ const WorkerTotalsPage: React.FC = () => {
                   ) : filteredWorkers.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={10}
+                        colSpan={5 + currentPageDates.length}
                         className="px-6 py-4 text-center text-gray-500"
                       >
-                        {searchText || selectedEfficiency !== "all"
-                          ? "No workers match your filters"
-                          : "No workers found"}
+                        No workers found
                       </td>
                     </tr>
                   ) : (
-                    filteredWorkers.map((worker, index) => (
-                      <tr key={worker._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <span
-                              className={`inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-medium ${
-                                index === 0
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : index === 1
-                                  ? "bg-gray-100 text-gray-800"
-                                  : index === 2
-                                  ? "bg-orange-100 text-orange-800"
-                                  : "bg-blue-100 text-blue-800"
-                              }`}
+                    filteredWorkers.map((worker) => {
+                      const blocks = [
+                        ...new Set(worker.rows.map((r) => r.blockName)),
+                      ].join(", ");
+                      const rows = [
+                        ...new Set(worker.rows.map((r) => r.rowNumber)),
+                      ]
+                        .sort((a, b) => {
+                          const numA = parseInt(a);
+                          const numB = parseInt(b);
+                          return numA - numB;
+                        })
+                        .join(", ");
+
+                      return (
+                        <tr key={worker._id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 whitespace-nowrap sticky left-0 bg-white hover:bg-gray-50 z-10">
+                            <div className="text-xs font-medium text-gray-900">
+                              {worker.name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {worker.workerID}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-900">
+                            <div className="max-w-xs truncate" title={blocks}>
+                              {blocks}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-900">
+                            <div className="max-w-xs truncate" title={rows}>
+                              {rows}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-row flex-wrap gap-1 max-w-[120px]">
+                              {[
+                                ...new Set(worker.rows.map((r) => r.jobType)),
+                              ].map((jobType, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-100 text-blue-800 capitalize whitespace-nowrap"
+                                >
+                                  {jobType}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          {currentPageDates.map((date) => (
+                            <td
+                              key={date}
+                              className="px-3 py-2 whitespace-nowrap text-center text-xs text-gray-900"
                             >
-                              {index + 1}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {worker.workerID || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {worker.name || "Unknown"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 capitalize">
-                          {worker.primaryJobType}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                          {worker.total_stock_count.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {worker.daysWorked}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                          {worker.totalHours}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                          {worker.position}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getEfficiencyColor(
-                              worker.efficiency
-                            )}`}
-                          >
-                            {worker.efficiency}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {worker.longWorkRowsCount > 0 ? (
-                            <IonBadge color="warning">
-                              {worker.longWorkRowsCount}
-                            </IonBadge>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                              {worker.dailyTotals[date] || "-"}
+                            </td>
+                          ))}
+                          <td className="px-3 py-2 whitespace-nowrap text-center text-xs font-bold text-gray-900 bg-blue-50 sticky right-0 z-10">
+                            {worker.grandTotal}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -665,156 +655,13 @@ const WorkerTotalsPage: React.FC = () => {
           {/* Footer */}
           <div className="mt-4 text-center text-sm text-gray-500">
             Showing {filteredWorkers.length} of {workers.length} workers
-            {(searchText || selectedEfficiency !== "all") && (
+            {(searchText ||
+              selectedBlock !== "all" ||
+              selectedJobType !== "all") && (
               <span className="ml-2 text-blue-600">(filtered)</span>
             )}
           </div>
         </div>
-
-        {/* Alerts Modal */}
-        <IonModal
-          isOpen={showAlertsModal}
-          onDidDismiss={() => setShowAlertsModal(false)}
-        >
-          <IonHeader>
-            <IonToolbar>
-              <IonTitle>Work Session Alerts</IonTitle>
-              <IonButton
-                slot="end"
-                fill="clear"
-                onClick={() => setShowAlertsModal(false)}
-              >
-                <X size={24} />
-              </IonButton>
-            </IonToolbar>
-          </IonHeader>
-          <IonContent className="ion-padding">
-            <div className="max-w-4xl mx-auto">
-              {rowAlerts.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-gray-500">
-                    <AlertTriangle
-                      size={48}
-                      className="mx-auto mb-4 text-gray-300"
-                    />
-                    <h3 className="text-lg font-medium">
-                      No Long Sessions Found
-                    </h3>
-                    <p>All work sessions are under 2 hours</p>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      Sessions Longer Than 2 Hours ({rowAlerts.length})
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Monitor worker wellbeing and productivity
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {rowAlerts.map((alert, index) => (
-                      <div
-                        key={index}
-                        className="bg-white border border-orange-200 rounded-lg p-4"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <AlertTriangle className="h-5 w-5 text-orange-500" />
-                              <span className="font-medium text-gray-900">
-                                {alert.workerName} ({alert.workerId})
-                              </span>
-                              <IonBadge color="warning">
-                                {formatTime(
-                                  alert.timeSpentHours,
-                                  alert.timeSpentMinutes
-                                )}
-                              </IonBadge>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                              <div>
-                                <span className="font-medium">Block:</span>{" "}
-                                {alert.blockName}
-                              </div>
-                              <div>
-                                <span className="font-medium">Row:</span>{" "}
-                                {alert.rowNumber}
-                              </div>
-                              <div>
-                                <span className="font-medium">Job:</span>{" "}
-                                {alert.jobType || "N/A"}
-                              </div>
-                              <div>
-                                <span className="font-medium">Date:</span>{" "}
-                                {new Date(alert.date).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                          <IonButton
-                            fill="outline"
-                            size="small"
-                            onClick={() => viewAlertDetails(alert)}
-                          >
-                            <Eye size={16} />
-                            Details
-                          </IonButton>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </IonContent>
-        </IonModal>
-
-        {/* Alert Details Modal */}
-        <IonAlert
-          isOpen={showAlertDetails}
-          onDidDismiss={() => setShowAlertDetails(false)}
-          header="Work Session Details"
-          message={
-            selectedAlert
-              ? `
-            <strong>Worker:</strong> ${selectedAlert.workerName} (${
-                  selectedAlert.workerId
-                })<br>
-            <strong>Location:</strong> ${selectedAlert.blockName} - Row ${
-                  selectedAlert.rowNumber
-                }<br>
-            <strong>Duration:</strong> ${formatTime(
-              selectedAlert.timeSpentHours,
-              selectedAlert.timeSpentMinutes
-            )}<br>
-            <strong>Job Type:</strong> ${
-              selectedAlert.jobType || "Not specified"
-            }<br>
-            <strong>Date:</strong> ${
-              selectedAlert.date
-                ? new Date(selectedAlert.date).toLocaleString()
-                : "Unknown"
-            }<br><br>
-            <em>Consider checking worker wellbeing and workload distribution.</em>
-          `
-              : ""
-          }
-          buttons={[
-            {
-              text: "Close",
-              role: "cancel",
-            },
-            {
-              text: "Mark as Reviewed",
-              handler: () => {
-                // You could implement a "reviewed" status here
-                console.log("Alert marked as reviewed");
-              },
-            },
-          ]}
-        />
       </IonContent>
     </IonPage>
   );
