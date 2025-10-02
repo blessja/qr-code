@@ -28,6 +28,9 @@ import { SelectChangeEvent } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircleIcon, ChevronDownIcon } from "lucide-react";
 import "./Checkin.css";
+import beepSound from "../assets/sounds/scan-beep.mp3";
+
+const successSound = new Audio(beepSound);
 
 const apiBaseUrl =
   "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api";
@@ -121,6 +124,7 @@ const CheckIn: React.FC = () => {
   }) => {
     setWorkerName(workerData.workerName);
     setWorkerID(workerData.workerID);
+    playSuccessSound();
     setFormStep(1);
   };
 
@@ -128,6 +132,12 @@ const CheckIn: React.FC = () => {
     let input = event.target.value;
     input = input.toUpperCase();
     setRowNumber(input);
+  };
+
+  const playSuccessSound = () => {
+    successSound.play().catch((error) => {
+      console.error("Sound playback error:", error);
+    });
   };
 
   const handleJobTypeInputChange = (
@@ -478,7 +488,7 @@ const CheckIn: React.FC = () => {
                           label="Job Type"
                           value={jobType || ""}
                           onChange={handleJobTypeInputChange}
-                          placeholder="Enter type of work (e.g., SUCKER, PRUNING)"
+                          placeholder="Enter type of work (e.g., SUIER, PRUNING)"
                           fullWidth
                         />
                       </FormControl>
