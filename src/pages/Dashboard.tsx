@@ -15,6 +15,10 @@ import WorkerBlockWidget from "../components/dashboard/widgets/WorkerBlockWidget
 import { WorkerBlockData } from "../utils/mockData";
 import { ApiService } from "../services/api";
 import "./Dashboard.css";
+import Header from "../components/Header";
+import { motion } from "framer-motion";
+import { useHistory } from "react-router-dom";
+import { LogIn, LogOut } from "lucide-react";
 
 interface RowAlert {
   workerId: string;
@@ -114,12 +118,35 @@ const Dashboard: React.FC = () => {
   };
 
   const totalAlerts = rowAlerts.length;
+  const history = useHistory();
 
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Worker Dashboard</IonTitle>
+          <div className="flex ml-20 sm:ml-5 items-center space-x-2">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => history.push("/checkin")}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-md transition-colors duration-200 text-sm font-medium"
+            >
+              <LogIn size={16} />
+              <span className="hidden sm:inline">Check-in</span>
+              <span className="sm:hidden">In</span>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => history.push("/checkout")}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md transition-colors duration-200 text-sm font-medium"
+            >
+              <LogOut size={16} />
+              <span className="hidden sm:inline">Check-out</span>
+              <span className="sm:hidden">Out</span>
+            </motion.button>
+          </div>
           <div slot="end" className="flex items-center gap-2 mr-4">
             <IonButton
               fill="clear"
