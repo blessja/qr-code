@@ -22,6 +22,9 @@ import {
   IonLabel,
 } from "@ionic/react";
 import { ApiService } from "../services/api";
+import { motion } from "framer-motion";
+import { useHistory } from "react-router-dom";
+import { LogIn, LogOut } from "lucide-react";
 
 interface WorkerData {
   _id: string;
@@ -73,9 +76,26 @@ const WorkerTotalsPage: React.FC = () => {
   const [uniqueBlocks, setUniqueBlocks] = useState<string[]>([]);
   const [uniqueJobTypes, setUniqueJobTypes] = useState<string[]>([]);
 
-  // Pagination for dates
+  // Pagination for dates - responsive
   const [currentDatePage, setCurrentDatePage] = useState(0);
-  const datesPerPage = 5; // Show 5 days at a time
+  const [datesPerPage, setDatesPerPage] = useState(3);
+
+  // Adjust dates per page based on screen size
+  useEffect(() => {
+    const updateDatesPerPage = () => {
+      if (window.innerWidth < 640) {
+        setDatesPerPage(2); // Mobile: show 2 dates
+      } else if (window.innerWidth < 1024) {
+        setDatesPerPage(3); // Tablet: show 3 dates
+      } else {
+        setDatesPerPage(3); // Desktop: show 3 dates
+      }
+    };
+
+    updateDatesPerPage();
+    window.addEventListener("resize", updateDatesPerPage);
+    return () => window.removeEventListener("resize", updateDatesPerPage);
+  }, []);
 
   const processWorkerData = (
     rawWorkers: WorkerData[]
@@ -216,7 +236,7 @@ const WorkerTotalsPage: React.FC = () => {
 
   useEffect(() => {
     fetchWorkers();
-    const interval = setInterval(fetchWorkers, 5 * 60 * 1000); // Refresh every 5 minutes
+    const interval = setInterval(fetchWorkers, 300000);
     return () => clearInterval(interval);
   }, []);
 
@@ -245,6 +265,7 @@ const WorkerTotalsPage: React.FC = () => {
   );
 
   const exportToPDF = () => {
+    // Create a printable view
     const printContent = `
       <!DOCTYPE html>
       <html>
@@ -255,13 +276,13 @@ const WorkerTotalsPage: React.FC = () => {
           h1 { color: #1f2937; margin-bottom: 10px; }
           .meta { color: #6b7280; margin-bottom: 20px; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 11px; }
+          th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 12px; }
           th { background-color: #f9fafb; font-weight: 600; }
           .text-center { text-align: center; }
           .font-bold { font-weight: bold; }
           .bg-blue { background-color: #eff6ff; }
-          .badge { display: inline-block; padding: 2px 6px; background-color: #dbeafe; 
-                   color: #1e40af; border-radius: 9999px; font-size: 9px; margin-right: 3px; }
+          .badge { display: inline-block; padding: 2px 8px; background-color: #dbeafe; 
+                   color: #1e40af; border-radius: 9999px; font-size: 11px; margin-right: 4px; }
         </style>
       </head>
       <body>
@@ -331,6 +352,7 @@ const WorkerTotalsPage: React.FC = () => {
       </html>
     `;
 
+    // Open print dialog
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(printContent);
@@ -342,18 +364,43 @@ const WorkerTotalsPage: React.FC = () => {
     }
   };
 
+  const history = useHistory();
+
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Worker Daily Totals</IonTitle>
+          {/* <IonTitle>Worker Daily Totals</IonTitle> */}
+          <div className="flex ml-20 sm:ml-5 items-center space-x-2 ri">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => history.push("/checkin")}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-md transition-colors duration-200 text-sm font-medium"
+            >
+              <LogIn size={16} />
+              <span className="hidden sm:inline">Check-in</span>
+              <span className="sm:hidden">In</span>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => history.push("/checkout")}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md transition-colors duration-200 text-sm font-medium"
+            >
+              <LogOut size={16} />
+              <span className="hidden sm:inline">Check-out</span>
+              <span className="sm:hidden">Out</span>
+            </motion.button>
+          </div>
         </IonToolbar>
       </IonHeader>
 
       <IonContent className="ion-padding">
         <div className="max-w-full mx-auto">
           {/* Header Section */}
-          <div className="mb-6">
+          <div className="mb-6 pl-2">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
@@ -388,7 +435,7 @@ const WorkerTotalsPage: React.FC = () => {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 px-2">
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="flex items-center">
                 <Users className="h-8 w-8 text-blue-600" />
@@ -433,7 +480,7 @@ const WorkerTotalsPage: React.FC = () => {
           </div>
 
           {/* Filters Section */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 px-2 mb-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex-1">
                 <IonSearchbar
@@ -484,7 +531,7 @@ const WorkerTotalsPage: React.FC = () => {
 
           {/* Date Pagination Controls */}
           {allDates.length > datesPerPage && (
-            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4 px-2">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
                   Showing dates {startDateIndex + 1} - {endDateIndex} of{" "}
@@ -532,30 +579,31 @@ const WorkerTotalsPage: React.FC = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase sticky left-0 bg-gray-50 z-10">
+                    <th className="px-2 w-3 py-3 text-left text-xs font-medium text-gray-500  sticky left-0 bg-gray-50 z-10">
                       Worker
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 ">
                       Blocks
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Rows
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Job Types
                     </th>
                     {currentPageDates.map((date) => (
                       <th
                         key={date}
-                        className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap"
+                        className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap"
                       >
                         {new Date(date).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
+                          year: "numeric",
                         })}
                       </th>
                     ))}
-                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase bg-blue-50 sticky right-0 z-10">
+                    <th className="px-2 py-3 w-3 text-center text-xs font-medium text-gray-500  bg-blue-50 sticky right-0 z-10">
                       Total
                     </th>
                   </tr>
@@ -565,7 +613,7 @@ const WorkerTotalsPage: React.FC = () => {
                     <tr>
                       <td
                         colSpan={5 + currentPageDates.length}
-                        className="px-6 py-4 text-center text-gray-500"
+                        className="px-4 py-4 text-center text-gray-500"
                       >
                         <RefreshCw
                           className="animate-spin mx-auto mb-2"
@@ -578,13 +626,14 @@ const WorkerTotalsPage: React.FC = () => {
                     <tr>
                       <td
                         colSpan={5 + currentPageDates.length}
-                        className="px-6 py-4 text-center text-gray-500"
+                        className="px-4 py-4 text-center text-gray-500"
                       >
                         No workers found
                       </td>
                     </tr>
                   ) : (
                     filteredWorkers.map((worker) => {
+                      // Get unique blocks, rows, and job types for this worker
                       const blocks = [
                         ...new Set(worker.rows.map((r) => r.blockName)),
                       ].join(", ");
@@ -597,35 +646,38 @@ const WorkerTotalsPage: React.FC = () => {
                           return numA - numB;
                         })
                         .join(", ");
+                      const jobTypes = [
+                        ...new Set(worker.rows.map((r) => r.jobType)),
+                      ].join(", ");
 
                       return (
                         <tr key={worker._id} className="hover:bg-gray-50">
-                          <td className="px-3 py-2 whitespace-nowrap sticky left-0 bg-white hover:bg-gray-50 z-10">
-                            <div className="text-xs font-medium text-gray-900">
+                          <td className="px-2 py-3 whitespace-nowrap sticky left-0 bg-white hover:bg-gray-50 z-10">
+                            <div className=" text-[10px] md:text-lg font-medium text-gray-900">
                               {worker.name}
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-[10px] md:text-sm text-gray-500">
                               {worker.workerID}
                             </div>
                           </td>
-                          <td className="px-3 py-2 text-xs text-gray-900">
+                          <td className="px-1 py-1 text-xs text-gray-900">
                             <div className="max-w-xs truncate" title={blocks}>
                               {blocks}
                             </div>
                           </td>
-                          <td className="px-3 py-2 text-xs text-gray-900">
-                            <div className="max-w-xs truncate" title={rows}>
+                          <td className="px-2 py-2 text-xs text-gray-900">
+                            <div className="max-w-xs truncate " title={rows}>
                               {rows}
                             </div>
                           </td>
-                          <td className="px-3 py-2">
-                            <div className="flex flex-row flex-wrap gap-1 max-w-[120px]">
+                          <td className="px-2 py-3">
+                            <div className="flex flex-wrap gap-1">
                               {[
                                 ...new Set(worker.rows.map((r) => r.jobType)),
                               ].map((jobType, idx) => (
                                 <span
                                   key={idx}
-                                  className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-100 text-blue-800 capitalize whitespace-nowrap"
+                                  className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 capitalize whitespace-nowrap"
                                 >
                                   {jobType}
                                 </span>
@@ -635,13 +687,16 @@ const WorkerTotalsPage: React.FC = () => {
                           {currentPageDates.map((date) => (
                             <td
                               key={date}
-                              className="px-3 py-2 whitespace-nowrap text-center text-xs text-gray-900"
+                              className="px-2 py-3 whitespace-nowrap text-center text-sm text-gray-900"
                             >
                               {worker.dailyTotals[date] || "-"}
                             </td>
                           ))}
-                          <td className="px-3 py-2 whitespace-nowrap text-center text-xs font-bold text-gray-900 bg-blue-50 sticky right-0 z-10">
-                            {worker.grandTotal}
+                          <td className="px-2 py-3 whitespace-nowrap text-center text-sm font-bold text-gray-900 bg-blue-50 sticky right-0 z-10">
+                            {worker.rows.reduce(
+                              (sum, row) => sum + row.total,
+                              0
+                            )}
                           </td>
                         </tr>
                       );

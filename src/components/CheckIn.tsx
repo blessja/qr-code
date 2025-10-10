@@ -26,7 +26,7 @@ import QRScanner from "../components/QrScanner";
 import { notifySuccess, notifyError } from "../utils/notify";
 import { SelectChangeEvent } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircleIcon, ChevronDownIcon } from "lucide-react";
+import { CheckCircleIcon, ChevronDownIcon, AlertCircle } from "lucide-react";
 import "./Checkin.css";
 import beepSound from "../assets/sounds/scan-beep.mp3";
 
@@ -35,12 +35,24 @@ const successSound = new Audio(beepSound);
 const apiBaseUrl =
   "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api";
 
+const JOB_TYPES = [
+  "PRUNING",
+  "SUIER",
+  "ANCHOR & TOP BUNCH",
+  "LEAF PICKING",
+  "OTHER",
+];
+
 const CheckIn: React.FC = () => {
   const [workerName, setWorkerName] = useState("");
   const [workerID, setWorkerID] = useState("");
   const [jobType, setJobType] = useState("");
+  const [customJobType, setCustomJobType] = useState("");
   const [blockName, setBlockName] = useState("");
   const [rowNumber, setRowNumber] = useState<string | null>(null);
+  const [rowDirection, setRowDirection] = useState<"ascending" | "descending">(
+    "ascending"
+  );
   const [blocks, setBlocks] = useState<string[]>([]);
   const [isBlockDropdownOpen, setIsBlockDropdownOpen] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
@@ -48,11 +60,11 @@ const CheckIn: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formStep, setFormStep] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const history = useHistory();
   const location = useLocation();
 
-  // Reset form whenever we navigate to this page
   useEffect(() => {
     resetForm();
   }, [location.pathname]);
@@ -70,20 +82,19 @@ const CheckIn: React.FC = () => {
   const resetForm = () => {
     setWorkerName("");
     setWorkerID("");
-    // DON'T clear jobType, blockName, rowNumber
-    // setJobType("");
-    // setBlockName("");
-    // setRowNumber(null);
     setFormStep(0);
     setIsBlockDropdownOpen(false);
     setIsLoading(false);
+    setErrorMessage("");
   };
 
-  // Add this function to auto-increment row numbers
-  const autoIncrementRow = (currentRow: string): string => {
+  // Bidirectional auto-increment
+  const autoIncrementRow = (
+    currentRow: string,
+    direction: "ascending" | "descending"
+  ): string => {
     if (!currentRow) return "";
 
-    // Match pattern like "1A", "12B", "5C"
     const match = currentRow.match(/^(\d+)([A-Z])$/);
     if (!match) return currentRow;
 
@@ -91,26 +102,33 @@ const CheckIn: React.FC = () => {
     const num = parseInt(number);
     const letterCode = letter.charCodeAt(0);
 
-    // If it's A, go to B. If it's B, go to next number with A
-    if (letter === "A") {
-      return `${num}B`;
-    } else if (letter === "B") {
-      return `${num + 1}A`;
+    if (direction === "ascending") {
+      // Forward: 1A -> 1B -> 2A -> 2B
+      if (letter === "A") {
+        return `${num}B`;
+      } else if (letter === "B") {
+        return `${num + 1}A`;
+      }
+      return `${num}${String.fromCharCode(letterCode + 1)}`;
+    } else {
+      // Reverse: 50B -> 50A -> 49B -> 49A
+      if (letter === "B") {
+        return `${num}A`;
+      } else if (letter === "A" && num > 1) {
+        return `${num - 1}B`;
+      }
+      // If at 1A, stay at 1A (can't go lower)
+      return currentRow;
     }
-
-    // For other letters (C, D, etc.), just increment
-    return `${num}${String.fromCharCode(letterCode + 1)}`;
   };
 
-  // Update the resetOnlyWorker function:
   const resetOnlyWorker = () => {
-    // Only clear worker info, keep job details
     setWorkerName("");
     setWorkerID("");
+    setErrorMessage("");
 
-    // Auto-increment row number
     if (rowNumber) {
-      const nextRow = autoIncrementRow(rowNumber);
+      const nextRow = autoIncrementRow(rowNumber, rowDirection);
       setRowNumber(nextRow);
     }
 
@@ -124,6 +142,7 @@ const CheckIn: React.FC = () => {
   }) => {
     setWorkerName(workerData.workerName);
     setWorkerID(workerData.workerID);
+    setErrorMessage("");
     playSuccessSound();
     setFormStep(1);
   };
@@ -132,6 +151,7 @@ const CheckIn: React.FC = () => {
     let input = event.target.value;
     input = input.toUpperCase();
     setRowNumber(input);
+    setErrorMessage("");
   };
 
   const playSuccessSound = () => {
@@ -140,22 +160,48 @@ const CheckIn: React.FC = () => {
     });
   };
 
-  const handleJobTypeInputChange = (
+  const handleJobTypeChange = (event: SelectChangeEvent) => {
+    const value = event.target.value;
+    setJobType(value);
+    setErrorMessage("");
+
+    // Clear custom job type when switching away from OTHER
+    if (value !== "OTHER") {
+      setCustomJobType("");
+    }
+  };
+
+  const handleCustomJobTypeChange = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     let input = event.target.value;
     input = input.toUpperCase();
-    setJobType(input);
+    setCustomJobType(input);
+    setErrorMessage("");
+  };
+
+  const getEffectiveJobType = () => {
+    return jobType === "OTHER" ? customJobType : jobType;
   };
 
   const handleCheckIn = async () => {
-    if (!workerID || !workerName || !blockName || !rowNumber || !jobType) {
-      setAlertMessage("Please provide all required information.");
-      setShowAlert(true);
-      return notifyError("Please fill all the fields");
+    const effectiveJobType = getEffectiveJobType();
+
+    if (
+      !workerID ||
+      !workerName ||
+      !blockName ||
+      !rowNumber ||
+      !effectiveJobType
+    ) {
+      setErrorMessage("Please provide all required information.");
+      notifyError("Please fill all the fields");
+      return;
     }
 
     setIsLoading(true);
+    setErrorMessage("");
+
     try {
       const response = await fetch(apiBaseUrl + "/checkin", {
         method: "POST",
@@ -165,30 +211,33 @@ const CheckIn: React.FC = () => {
           workerName,
           blockName,
           rowNumber,
-          jobType,
+          jobType: effectiveJobType,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setAlertMessage(data.message);
-        setShowAlert(true);
-        notifyError(data.message || "Check-in failed");
+        if (response.status === 409) {
+          setErrorMessage(data.message);
+          notifyError(data.message);
+        } else {
+          setErrorMessage(data.message || "Check-in failed");
+          notifyError(data.message || "Check-in failed");
+        }
       } else {
         console.log("Check-in successful:", data);
         notifySuccess("Check-in successful!");
         setFormStep(2);
         setShowToast(true);
-        // Auto reset after 2 seconds - only worker info
         setTimeout(() => {
           resetOnlyWorker();
         }, 2000);
       }
     } catch (error) {
-      setAlertMessage("An error occurred during check-in.");
-      setShowAlert(true);
-      notifyError("An error occurred during check-in");
+      const errorMsg = "An error occurred during check-in.";
+      setErrorMessage(errorMsg);
+      notifyError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -198,11 +247,13 @@ const CheckIn: React.FC = () => {
     setWorkerName("");
     setWorkerID("");
     setJobType("");
+    setCustomJobType("");
     setBlockName("");
     setRowNumber(null);
     setFormStep(0);
     setIsBlockDropdownOpen(false);
     setIsLoading(false);
+    setErrorMessage("");
   };
 
   return (
@@ -339,6 +390,44 @@ const CheckIn: React.FC = () => {
               </IonCardHeader>
 
               <IonCardContent>
+                {errorMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      backgroundColor: "#fef2f2",
+                      border: "1px solid #ef4444",
+                      borderRadius: "8px",
+                      padding: "12px",
+                      marginBottom: "16px",
+                      display: "flex",
+                      alignItems: "start",
+                    }}
+                  >
+                    <AlertCircle
+                      size={20}
+                      color="#ef4444"
+                      style={{
+                        marginRight: "8px",
+                        marginTop: "2px",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "14px",
+                          color: "#991b1b",
+                          fontWeight: "500",
+                        }}
+                      >
+                        {errorMessage}
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+
                 <AnimatePresence mode="wait">
                   {formStep === 0 && (
                     <motion.div
@@ -348,7 +437,6 @@ const CheckIn: React.FC = () => {
                       exit={{ opacity: 0, x: 20 }}
                       transition={{ duration: 0.3 }}
                     >
-                      {/* Show saved job details if they exist */}
                       {(blockName || rowNumber || jobType) && (
                         <div
                           style={{
@@ -361,9 +449,16 @@ const CheckIn: React.FC = () => {
                         >
                           <div style={{ fontSize: "14px", color: "#92400e" }}>
                             <strong>Current Job Details:</strong>
-                            {jobType && <p>Job: {jobType}</p>}
+                            {getEffectiveJobType() && (
+                              <p>Job: {getEffectiveJobType()}</p>
+                            )}
                             {blockName && <p>Block: {blockName}</p>}
-                            {rowNumber && <p>Row: {rowNumber}</p>}
+                            {rowNumber && (
+                              <p>
+                                Row: {rowNumber} (
+                                {rowDirection === "ascending" ? "↑" : "↓"})
+                              </p>
+                            )}
                           </div>
                           <Button
                             size="small"
@@ -484,14 +579,40 @@ const CheckIn: React.FC = () => {
                         variant="outlined"
                         style={{ width: "100%", marginBottom: "20px" }}
                       >
-                        <TextField
+                        <InputLabel id="job-type-label">Job Type</InputLabel>
+                        <Select
+                          labelId="job-type-label"
+                          value={jobType}
+                          onChange={handleJobTypeChange}
                           label="Job Type"
-                          value={jobType || ""}
-                          onChange={handleJobTypeInputChange}
-                          placeholder="Enter type of work (e.g., SUIER, PRUNING)"
                           fullWidth
-                        />
+                        >
+                          <MenuItem value="">
+                            <em>Select Job Type</em>
+                          </MenuItem>
+                          {JOB_TYPES.map((job) => (
+                            <MenuItem key={job} value={job}>
+                              {job}
+                            </MenuItem>
+                          ))}
+                        </Select>
                       </FormControl>
+
+                      {jobType === "OTHER" && (
+                        <FormControl
+                          variant="outlined"
+                          style={{ width: "100%", marginBottom: "20px" }}
+                        >
+                          <TextField
+                            label="Custom Job Type"
+                            value={customJobType}
+                            onChange={handleCustomJobTypeChange}
+                            placeholder="Enter custom job type"
+                            fullWidth
+                            required
+                          />
+                        </FormControl>
+                      )}
 
                       <FormControl
                         variant="outlined"
@@ -501,9 +622,10 @@ const CheckIn: React.FC = () => {
                         <Select
                           labelId="block-label"
                           value={blockName}
-                          onChange={(e: SelectChangeEvent) =>
-                            setBlockName(e.target.value)
-                          }
+                          onChange={(e: SelectChangeEvent) => {
+                            setBlockName(e.target.value);
+                            setErrorMessage("");
+                          }}
                           label="Block Name"
                           fullWidth
                         >
@@ -531,6 +653,35 @@ const CheckIn: React.FC = () => {
                         />
                       </FormControl>
 
+                      <FormControl
+                        variant="outlined"
+                        style={{ width: "100%", marginBottom: "20px" }}
+                      >
+                        <InputLabel id="direction-label">
+                          Row Direction
+                        </InputLabel>
+                        <Select
+                          labelId="direction-label"
+                          value={rowDirection}
+                          onChange={(
+                            e: SelectChangeEvent<"ascending" | "descending">
+                          ) => {
+                            setRowDirection(
+                              e.target.value as "ascending" | "descending"
+                            );
+                          }}
+                          label="Row Direction"
+                          fullWidth
+                        >
+                          <MenuItem value="ascending">
+                            Ascending (1A → 1B → 2A)
+                          </MenuItem>
+                          <MenuItem value="descending">
+                            Descending (50B → 50A → 49B)
+                          </MenuItem>
+                        </Select>
+                      </FormControl>
+
                       <div
                         style={{
                           display: "flex",
@@ -540,7 +691,10 @@ const CheckIn: React.FC = () => {
                       >
                         <Button
                           variant="outlined"
-                          onClick={() => setFormStep(0)}
+                          onClick={() => {
+                            setFormStep(0);
+                            setErrorMessage("");
+                          }}
                         >
                           Back
                         </Button>
@@ -548,7 +702,10 @@ const CheckIn: React.FC = () => {
                           variant="contained"
                           onClick={handleCheckIn}
                           disabled={
-                            !blockName || !rowNumber || !jobType || isLoading
+                            !blockName ||
+                            !rowNumber ||
+                            !getEffectiveJobType() ||
+                            isLoading
                           }
                           style={{ backgroundColor: "#22c55e" }}
                         >
@@ -606,7 +763,7 @@ const CheckIn: React.FC = () => {
                         }}
                       >
                         {workerName} has been checked in to {blockName}, Row{" "}
-                        {rowNumber} for {jobType}
+                        {rowNumber} for {getEffectiveJobType()}
                       </p>
                       <p
                         style={{
