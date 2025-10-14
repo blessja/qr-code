@@ -1,6 +1,22 @@
+// src/components/dashboard/widgets/WorkerBlockWidget.tsx
 import React, { useState } from "react";
-import { WorkerBlockData } from "../../../utils/mockData";
-import { SearchIcon, RefreshCwIcon } from "lucide-react";
+import {
+  IonButton,
+  IonBadge,
+  IonSpinner,
+  IonCheckbox,
+  IonModal,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonContent,
+  IonItem,
+  IonLabel,
+  IonInput,
+  IonAlert,
+} from "@ionic/react";
+import { RefreshCw, LogOut, CheckCircle, X } from "lucide-react";
+import { WorkerBlockData } from "../../utils/mockData";
 
 interface WorkerBlockWidgetProps {
   title: string;
@@ -9,235 +25,535 @@ interface WorkerBlockWidgetProps {
   onRefresh?: () => void;
 }
 
+interface CheckoutData {
+  workerID: string;
+  workerName: string;
+  blockName: string;
+  rowNumber: string;
+  jobType: string;
+  remainingStocks: number;
+  stocksCompleted: number;
+}
+
 const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
   title,
   data,
   isLoading = false,
   onRefresh,
 }) => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterBlock, setFilterBlock] = useState<string>("all");
-  const [filterJobType, setFilterJobType] = useState<string>("all");
+  const [selectedWorkers, setSelectedWorkers] = useState<Set<string>>(
+    new Set()
+  );
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
+  const [showBulkCheckoutModal, setShowBulkCheckoutModal] = useState(false);
+  const [bulkCheckoutData, setBulkCheckoutData] = useState<CheckoutData[]>([]);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
-  // Extract unique block names and job types for filters
-  const uniqueBlocks = ["all", ...new Set(data.map((item) => item.blockName))];
-  const uniqueJobTypes = [
-    "all",
-    ...new Set(data.map((item) => item.job_type).filter(Boolean)),
-  ];
+  const apiBaseUrl =
+    "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api";
 
-  // Filter data based on search term and filters
-  const filteredData = data.filter((item) => {
-    const matchesSearch =
-      item.workerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.workerID.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.rowNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.blockName.toLowerCase().includes(searchTerm.toLowerCase());
+  const handleToggleWorker = (workerID: string) => {
+    const newSelected = new Set(selectedWorkers);
+    if (newSelected.has(workerID)) {
+      newSelected.delete(workerID);
+    } else {
+      newSelected.add(workerID);
+    }
+    setSelectedWorkers(newSelected);
+  };
 
-    const matchesBlock =
-      filterBlock === "all" || item.blockName === filterBlock;
+  const handleSelectAll = () => {
+    if (selectedWorkers.size === data.length) {
+      setSelectedWorkers(new Set());
+    } else {
+      setSelectedWorkers(new Set(data.map((w) => w.workerID)));
+    }
+  };
 
-    const matchesJobType =
-      filterJobType === "all" || item.job_type === filterJobType;
+  const handleSingleCheckout = (worker: WorkerBlockData) => {
+    setCheckoutData({
+      workerID: worker.workerID,
+      workerName: worker.workerName,
+      blockName: worker.blockName,
+      rowNumber: worker.rowNumber,
+      jobType: worker.job_type,
+      remainingStocks: worker.remainingStocks,
+      stocksCompleted: worker.remainingStocks, // Default to completing all
+    });
+    setShowCheckoutModal(true);
+  };
 
-    return matchesSearch && matchesBlock && matchesJobType;
-  });
+  const handleBulkCheckoutInit = () => {
+    if (selectedWorkers.size === 0) {
+      alert("Please select at least one worker");
+      return;
+    }
 
-  if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 animate-pulse">
-        <div className="p-6">
-          <div className="h-5 bg-gray-200 rounded w-1/4 mb-6"></div>
-        </div>
-        <div className="border-t border-gray-200">
-          {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className="px-6 py-4 border-b border-gray-200 last:border-b-0"
-            >
-              <div className="flex items-center">
-                <div className="h-4 bg-gray-200 rounded w-1/4 mr-4"></div>
-                <div className="h-4 bg-gray-200 rounded w-2/5"></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+    const selectedData = data
+      .filter((w) => selectedWorkers.has(w.workerID))
+      .map((w) => ({
+        workerID: w.workerID,
+        workerName: w.workerName,
+        blockName: w.blockName,
+        rowNumber: w.rowNumber,
+        jobType: w.job_type,
+        remainingStocks: w.remainingStocks,
+        stocksCompleted: w.remainingStocks,
+      }));
+
+    setBulkCheckoutData(selectedData);
+    setShowBulkCheckoutModal(true);
+  };
+
+  const updateStocksCompleted = (workerID: string, stocks: number) => {
+    setBulkCheckoutData((prev) =>
+      prev.map((w) =>
+        w.workerID === workerID ? { ...w, stocksCompleted: stocks } : w
+      )
     );
-  }
+  };
+
+  const updateSingleStocksCompleted = (stocks: number) => {
+    if (checkoutData) {
+      setCheckoutData({ ...checkoutData, stocksCompleted: stocks });
+    }
+  };
+
+  const executeSingleCheckout = async () => {
+    if (!checkoutData) return;
+
+    if (checkoutData.stocksCompleted > checkoutData.remainingStocks) {
+      alert(
+        `Cannot complete ${checkoutData.stocksCompleted} vines when only ${checkoutData.remainingStocks} remain`
+      );
+      return;
+    }
+
+    if (checkoutData.stocksCompleted < 0) {
+      alert("Vines completed must be 0 or greater");
+      return;
+    }
+
+    setCheckoutLoading(true);
+
+    try {
+      const response = await fetch(apiBaseUrl + "/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workerID: checkoutData.workerID,
+          workerName: checkoutData.workerName,
+          blockName: checkoutData.blockName,
+          rowNumber: checkoutData.rowNumber,
+          stockCount: checkoutData.stocksCompleted,
+          jobType: checkoutData.jobType,
+        }),
+      });
+
+      if (response.ok) {
+        setSuccessMessage(
+          `${checkoutData.workerName} checked out successfully!`
+        );
+        setShowSuccessAlert(true);
+        setShowCheckoutModal(false);
+        setCheckoutData(null);
+        if (onRefresh) onRefresh();
+      } else {
+        const errorData = await response.json();
+        alert(`Checkout failed: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error("Error during checkout:", error);
+      alert("An error occurred during checkout");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const executeBulkCheckout = async () => {
+    // Validate all workers
+    for (const worker of bulkCheckoutData) {
+      if (worker.stocksCompleted > worker.remainingStocks) {
+        alert(
+          `${worker.workerName} cannot complete ${worker.stocksCompleted} vines when only ${worker.remainingStocks} remain`
+        );
+        return;
+      }
+      if (worker.stocksCompleted < 0) {
+        alert(`${worker.workerName} must complete at least 0 vines`);
+        return;
+      }
+    }
+
+    setCheckoutLoading(true);
+
+    try {
+      const checkoutPromises = bulkCheckoutData.map((worker) =>
+        fetch(apiBaseUrl + "/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workerID: worker.workerID,
+            workerName: worker.workerName,
+            blockName: worker.blockName,
+            rowNumber: worker.rowNumber,
+            stockCount: worker.stocksCompleted,
+            jobType: worker.jobType,
+          }),
+        })
+      );
+
+      await Promise.all(checkoutPromises);
+
+      setSuccessMessage(
+        `Successfully checked out ${bulkCheckoutData.length} worker(s)!`
+      );
+      setShowSuccessAlert(true);
+      setShowBulkCheckoutModal(false);
+      setBulkCheckoutData([]);
+      setSelectedWorkers(new Set());
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      console.error("Error during bulk checkout:", error);
+      alert("Failed to checkout workers. Please try again.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const formatTimeSpent = (startTime: string) => {
+    const start = new Date(startTime).getTime();
+    const now = new Date().getTime();
+    const diffMinutes = Math.floor((now - start) / (1000 * 60));
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    return `${hours}h ${minutes}m`;
+  };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+    <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+        <div className="flex items-center gap-2">
+          {selectedWorkers.size > 0 && (
+            <IonButton
+              onClick={handleBulkCheckoutInit}
+              color="success"
+              size="small"
+            >
+              <LogOut size={16} className="mr-1" />
+              Checkout Selected ({selectedWorkers.size})
+            </IonButton>
+          )}
           {onRefresh && (
-            <button
-              onClick={onRefresh}
-              className="p-2 text-gray-500 hover:text-gray-700 focus:outline-none"
-              aria-label="Refresh data"
-            >
-              <RefreshCwIcon size={18} />
-            </button>
+            <IonButton onClick={onRefresh} fill="outline" size="small">
+              <RefreshCw size={16} className="mr-1" />
+              Refresh
+            </IonButton>
           )}
-        </div>
-
-        <div className="mt-4 flex flex-col md:flex-row gap-4">
-          {/* Search */}
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <SearchIcon size={18} className="text-gray-400" />
-            </div>
-            <input
-              type="text"
-              className="block w-full pl-10 pr-3 py-2 text-black bg-white border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Search workers, IDs, blocks, rows..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          {/* Block filter */}
-          <div className="w-full md:w-48">
-            <select
-              value={filterBlock}
-              onChange={(e) => setFilterBlock(e.target.value)}
-              className="w-full py-2 px-3 border text-black bg-white border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {uniqueBlocks.map((block) => (
-                <option key={block} value={block}>
-                  {block === "all" ? "All Blocks" : block}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Job Type filter */}
-          <div className="w-full md:w-48">
-            <select
-              value={filterJobType}
-              onChange={(e) => setFilterJobType(e.target.value)}
-              className="w-full py-2 px-3 border text-black bg-white border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {uniqueJobTypes.map((jobType) => (
-                <option key={jobType} value={jobType}>
-                  {jobType === "all"
-                    ? "All Job Types"
-                    : jobType || "Unassigned"}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Block / Row
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Worker
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Job Type
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredData.length > 0 ? (
-              filteredData.map((item, index) => {
-                // Determine status based on remaining stocks
-                let status = "In Progress";
-                let statusColor = "bg-green-100 text-green-800";
-
-                if (item.remainingStocks === 0) {
-                  status = "Completed";
-                  statusColor = "bg-blue-100 text-blue-800";
-                } else if (item.remainingStocks === item.stockCount) {
-                  status = "Not Started";
-                  statusColor = "bg-gray-100 text-gray-800";
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <IonSpinner name="crescent" />
+          <span className="ml-2 text-gray-500">Loading workers...</span>
+        </div>
+      ) : data.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-500">No workers currently checked in</p>
+        </div>
+      ) : (
+        <>
+          {/* Select All Checkbox */}
+          <div className="mb-4 pb-4 border-b border-gray-200">
+            <label className="flex items-center cursor-pointer">
+              <IonCheckbox
+                checked={
+                  selectedWorkers.size === data.length && data.length > 0
                 }
+                indeterminate={
+                  selectedWorkers.size > 0 && selectedWorkers.size < data.length
+                }
+                onIonChange={handleSelectAll}
+              />
+              <span className="ml-2 text-sm font-medium text-gray-700">
+                Select All ({data.length} workers)
+              </span>
+            </label>
+          </div>
 
-                return (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {item.blockName}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Row {item.rowNumber}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {item.workerName}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        ID: {item.workerID}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          item.job_type
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {item.job_type || "Unassigned"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${statusColor}`}
-                      >
-                        {status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="px-6 py-4 text-center text-sm text-gray-500"
-                >
-                  No results found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+          {/* Workers List */}
+          <div className="space-y-4">
+            {data.map((worker) => (
+              <div
+                key={worker.workerID}
+                className={`border rounded-lg p-4 transition-all ${
+                  selectedWorkers.has(worker.workerID)
+                    ? "border-green-500 bg-green-50"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Checkbox */}
+                  <IonCheckbox
+                    checked={selectedWorkers.has(worker.workerID)}
+                    onIonChange={() => handleToggleWorker(worker.workerID)}
+                    style={{ marginTop: "4px" }}
+                  />
 
-      {/* Footer with count */}
-      <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-        <div className="text-sm text-gray-500">
-          Showing {filteredData.length} of {data.length} assignments
-          {(searchTerm || filterBlock !== "all" || filterJobType !== "all") && (
-            <span className="ml-2 text-blue-600">(filtered)</span>
+                  {/* Worker Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h3 className="font-medium text-gray-900">
+                          {worker.workerName}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          ID: {worker.workerID}
+                        </p>
+                      </div>
+                      <IonBadge color="primary">
+                        {worker.remainingStocks} vines left
+                      </IonBadge>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-600 mb-3">
+                      <div>
+                        <span className="font-medium">Block:</span>{" "}
+                        {worker.blockName}
+                      </div>
+                      <div>
+                        <span className="font-medium">Row:</span>{" "}
+                        {worker.rowNumber}
+                      </div>
+                      <div>
+                        <span className="font-medium">Job:</span>{" "}
+                        {worker.job_type}
+                      </div>
+                      <div>
+                        <span className="font-medium">Time:</span>{" "}
+                        {formatTimeSpent(worker.startTime)}
+                      </div>
+                    </div>
+
+                    {/* Checkout Button */}
+                    <IonButton
+                      size="small"
+                      color="success"
+                      onClick={() => handleSingleCheckout(worker)}
+                    >
+                      <LogOut size={16} className="mr-1" />
+                      Checkout
+                    </IonButton>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Single Worker Checkout Modal */}
+      <IonModal
+        isOpen={showCheckoutModal}
+        onDidDismiss={() => {
+          setShowCheckoutModal(false);
+          setCheckoutData(null);
+        }}
+      >
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Checkout Worker</IonTitle>
+            <IonButton
+              slot="end"
+              fill="clear"
+              onClick={() => {
+                setShowCheckoutModal(false);
+                setCheckoutData(null);
+              }}
+            >
+              <X size={24} />
+            </IonButton>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent className="ion-padding">
+          {checkoutData && (
+            <div className="max-w-lg mx-auto">
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="font-medium text-blue-900 mb-2">
+                  {checkoutData.workerName}
+                </h3>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <p>ID: {checkoutData.workerID}</p>
+                  <p>
+                    Location: {checkoutData.blockName}, Row{" "}
+                    {checkoutData.rowNumber}
+                  </p>
+                  <p>Job: {checkoutData.jobType}</p>
+                  <p className="font-medium">
+                    Remaining: {checkoutData.remainingStocks} vines
+                  </p>
+                </div>
+              </div>
+
+              <IonItem>
+                <IonLabel position="stacked">Vines Completed *</IonLabel>
+                <IonInput
+                  type="number"
+                  value={checkoutData.stocksCompleted}
+                  onIonInput={(e: any) =>
+                    updateSingleStocksCompleted(parseInt(e.target.value) || 0)
+                  }
+                  min={0}
+                  max={checkoutData.remainingStocks}
+                  placeholder="Enter vines completed"
+                />
+              </IonItem>
+
+              <p className="text-sm text-gray-600 mt-2 mb-6">
+                Leave blank or enter 0 if no work was completed
+              </p>
+
+              <IonButton
+                expand="block"
+                color="success"
+                size="large"
+                onClick={executeSingleCheckout}
+                disabled={checkoutLoading}
+              >
+                {checkoutLoading ? (
+                  "Checking Out..."
+                ) : (
+                  <>
+                    Confirm Checkout
+                    <CheckCircle className="ml-2" size={20} />
+                  </>
+                )}
+              </IonButton>
+            </div>
           )}
-        </div>
-      </div>
+        </IonContent>
+      </IonModal>
+
+      {/* Bulk Checkout Modal */}
+      <IonModal
+        isOpen={showBulkCheckoutModal}
+        onDidDismiss={() => {
+          setShowBulkCheckoutModal(false);
+          setBulkCheckoutData([]);
+        }}
+      >
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Bulk Checkout</IonTitle>
+            <IonButton
+              slot="end"
+              fill="clear"
+              onClick={() => {
+                setShowBulkCheckoutModal(false);
+                setBulkCheckoutData([]);
+              }}
+            >
+              <X size={24} />
+            </IonButton>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent className="ion-padding">
+          <div className="max-w-3xl mx-auto">
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-medium text-blue-900">
+                Checking out {bulkCheckoutData.length} worker(s)
+              </h3>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              {bulkCheckoutData.map((worker) => (
+                <div
+                  key={worker.workerID}
+                  className="p-4 border border-gray-200 rounded-lg bg-white"
+                >
+                  <div className="mb-3">
+                    <h4 className="font-medium text-gray-900">
+                      {worker.workerName}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {worker.blockName}, Row {worker.rowNumber} |{" "}
+                      {worker.jobType}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Remaining: {worker.remainingStocks} vines
+                    </p>
+                  </div>
+                  <IonItem lines="none" className="ion-no-padding">
+                    <IonLabel position="stacked">Vines Completed</IonLabel>
+                    <IonInput
+                      type="number"
+                      value={worker.stocksCompleted}
+                      onIonInput={(e: any) =>
+                        updateStocksCompleted(
+                          worker.workerID,
+                          parseInt(e.target.value) || 0
+                        )
+                      }
+                      min={0}
+                      max={worker.remainingStocks}
+                    />
+                  </IonItem>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+              <h4 className="font-medium text-gray-900 mb-2">Summary</h4>
+              <div className="space-y-1 text-sm">
+                <p>
+                  <span className="text-gray-600">Total Workers:</span>{" "}
+                  <span className="font-medium">{bulkCheckoutData.length}</span>
+                </p>
+                <p>
+                  <span className="text-gray-600">Total Vines Completed:</span>{" "}
+                  <span className="font-medium">
+                    {bulkCheckoutData.reduce(
+                      (sum, w) => sum + w.stocksCompleted,
+                      0
+                    )}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <IonButton
+              expand="block"
+              color="success"
+              size="large"
+              onClick={executeBulkCheckout}
+              disabled={checkoutLoading}
+            >
+              {checkoutLoading ? (
+                "Checking Out..."
+              ) : (
+                <>
+                  Checkout All Workers
+                  <CheckCircle className="ml-2" size={20} />
+                </>
+              )}
+            </IonButton>
+          </div>
+        </IonContent>
+      </IonModal>
+
+      {/* Success Alert */}
+      <IonAlert
+        isOpen={showSuccessAlert}
+        onDidDismiss={() => setShowSuccessAlert(false)}
+        header="Success"
+        message={successMessage}
+        buttons={["OK"]}
+      />
     </div>
   );
 };
