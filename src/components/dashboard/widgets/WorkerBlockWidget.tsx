@@ -16,7 +16,7 @@ import {
   IonAlert,
 } from "@ionic/react";
 import { RefreshCw, LogOut, CheckCircle, X } from "lucide-react";
-import { WorkerBlockData } from "../../utils/mockData";
+import { WorkerBlockData } from "../../../utils/mockData";
 
 interface WorkerBlockWidgetProps {
   title: string;
