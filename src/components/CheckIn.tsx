@@ -72,7 +72,13 @@ const CheckIn: React.FC = () => {
   useEffect(() => {
     fetch(apiBaseUrl + "/blocks")
       .then((response) => response.json())
-      .then((data) => setBlocks(data))
+      .then((data) => {
+        // Sort blocks in ascending order
+        const sortedBlocks = [...data].sort((a: string, b: string) =>
+          a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+        );
+        setBlocks(sortedBlocks);
+      })
       .catch((error) => {
         setAlertMessage(`Error fetching blocks: ${error.message}`);
         setShowAlert(true);

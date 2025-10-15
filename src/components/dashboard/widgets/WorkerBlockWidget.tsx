@@ -55,12 +55,17 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
   const apiBaseUrl =
     "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api";
 
-  const handleToggleWorker = (workerID: string) => {
+  // ✅ FIX 1: Create unique key for each worker entry
+  const getWorkerKey = (worker: WorkerBlockData) => {
+    return `${worker.workerID}-${worker.blockName}-${worker.rowNumber}-${worker.job_type}`;
+  };
+
+  const handleToggleWorker = (workerKey: string) => {
     const newSelected = new Set(selectedWorkers);
-    if (newSelected.has(workerID)) {
-      newSelected.delete(workerID);
+    if (newSelected.has(workerKey)) {
+      newSelected.delete(workerKey);
     } else {
-      newSelected.add(workerID);
+      newSelected.add(workerKey);
     }
     setSelectedWorkers(newSelected);
   };
@@ -69,7 +74,7 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
     if (selectedWorkers.size === data.length) {
       setSelectedWorkers(new Set());
     } else {
-      setSelectedWorkers(new Set(data.map((w) => w.workerID)));
+      setSelectedWorkers(new Set(data.map((w) => getWorkerKey(w))));
     }
   };
 
@@ -93,7 +98,7 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
     }
 
     const selectedData = data
-      .filter((w) => selectedWorkers.has(w.workerID))
+      .filter((w) => selectedWorkers.has(getWorkerKey(w)))
       .map((w) => ({
         workerID: w.workerID,
         workerName: w.workerName,
@@ -108,10 +113,19 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
     setShowBulkCheckoutModal(true);
   };
 
-  const updateStocksCompleted = (workerID: string, stocks: number) => {
+  const updateStocksCompleted = (
+    workerID: string,
+    rowNumber: string,
+    jobType: string,
+    stocks: number
+  ) => {
     setBulkCheckoutData((prev) =>
       prev.map((w) =>
-        w.workerID === workerID ? { ...w, stocksCompleted: stocks } : w
+        w.workerID === workerID &&
+        w.rowNumber === rowNumber &&
+        w.jobType === jobType
+          ? { ...w, stocksCompleted: stocks }
+          : w
       )
     );
   };
@@ -154,13 +168,16 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
       });
 
       if (response.ok) {
+        const responseData = await response.json();
         setSuccessMessage(
           `${checkoutData.workerName} checked out successfully!`
         );
         setShowSuccessAlert(true);
         setShowCheckoutModal(false);
         setCheckoutData(null);
-        if (onRefresh) onRefresh();
+
+        // ✅ FIX 2: Wait for refresh to complete to get updated data
+        if (onRefresh) await onRefresh();
       } else {
         const errorData = await response.json();
         alert(`Checkout failed: ${errorData.message}`);
@@ -215,7 +232,9 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
       setShowBulkCheckoutModal(false);
       setBulkCheckoutData([]);
       setSelectedWorkers(new Set());
-      if (onRefresh) onRefresh();
+
+      // ✅ FIX 2: Wait for refresh to complete
+      if (onRefresh) await onRefresh();
     } catch (error) {
       console.error("Error during bulk checkout:", error);
       alert("Failed to checkout workers. Please try again.");
@@ -275,9 +294,6 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
                 checked={
                   selectedWorkers.size === data.length && data.length > 0
                 }
-                indeterminate={
-                  selectedWorkers.size > 0 && selectedWorkers.size < data.length
-                }
                 onIonChange={handleSelectAll}
               />
               <span className="ml-2 text-sm font-medium text-gray-700">
@@ -288,71 +304,74 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
 
           {/* Workers List */}
           <div className="space-y-4">
-            {data.map((worker) => (
-              <div
-                key={worker.workerID}
-                className={`border rounded-lg p-4 transition-all ${
-                  selectedWorkers.has(worker.workerID)
-                    ? "border-green-500 bg-green-50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {/* Checkbox */}
-                  <IonCheckbox
-                    checked={selectedWorkers.has(worker.workerID)}
-                    onIonChange={() => handleToggleWorker(worker.workerID)}
-                    style={{ marginTop: "4px" }}
-                  />
+            {data.map((worker) => {
+              const workerKey = getWorkerKey(worker);
+              return (
+                <div
+                  key={workerKey}
+                  className={`border rounded-lg p-4 transition-all ${
+                    selectedWorkers.has(workerKey)
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Checkbox */}
+                    <IonCheckbox
+                      checked={selectedWorkers.has(workerKey)}
+                      onIonChange={() => handleToggleWorker(workerKey)}
+                      style={{ marginTop: "4px" }}
+                    />
 
-                  {/* Worker Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          {worker.workerName}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          ID: {worker.workerID}
-                        </p>
+                    {/* Worker Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h3 className="font-medium text-gray-900">
+                            {worker.workerName}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            ID: {worker.workerID}
+                          </p>
+                        </div>
+                        <IonBadge color="primary">
+                          {worker.remainingStocks} vines left
+                        </IonBadge>
                       </div>
-                      <IonBadge color="primary">
-                        {worker.remainingStocks} vines left
-                      </IonBadge>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-600 mb-3">
+                        <div>
+                          <span className="font-medium">Block:</span>{" "}
+                          {worker.blockName}
+                        </div>
+                        <div>
+                          <span className="font-medium">Row:</span>{" "}
+                          {worker.rowNumber}
+                        </div>
+                        <div>
+                          <span className="font-medium">Job:</span>{" "}
+                          {worker.job_type}
+                        </div>
+                        <div>
+                          <span className="font-medium">Time:</span>{" "}
+                          {formatTimeSpent(worker.startTime)}
+                        </div>
+                      </div>
+
+                      {/* Checkout Button */}
+                      <IonButton
+                        size="small"
+                        color="success"
+                        onClick={() => handleSingleCheckout(worker)}
+                      >
+                        <LogOut size={16} className="mr-1" />
+                        Checkout
+                      </IonButton>
                     </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-600 mb-3">
-                      <div>
-                        <span className="font-medium">Block:</span>{" "}
-                        {worker.blockName}
-                      </div>
-                      <div>
-                        <span className="font-medium">Row:</span>{" "}
-                        {worker.rowNumber}
-                      </div>
-                      <div>
-                        <span className="font-medium">Job:</span>{" "}
-                        {worker.job_type}
-                      </div>
-                      <div>
-                        <span className="font-medium">Time:</span>{" "}
-                        {formatTimeSpent(worker.startTime)}
-                      </div>
-                    </div>
-
-                    {/* Checkout Button */}
-                    <IonButton
-                      size="small"
-                      color="success"
-                      onClick={() => handleSingleCheckout(worker)}
-                    >
-                      <LogOut size={16} className="mr-1" />
-                      Checkout
-                    </IonButton>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}
@@ -471,9 +490,9 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
             </div>
 
             <div className="space-y-4 mb-6">
-              {bulkCheckoutData.map((worker) => (
+              {bulkCheckoutData.map((worker, index) => (
                 <div
-                  key={worker.workerID}
+                  key={`${worker.workerID}-${worker.rowNumber}-${worker.jobType}-${index}`}
                   className="p-4 border border-gray-200 rounded-lg bg-white"
                 >
                   <div className="mb-3">
@@ -496,6 +515,8 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
                       onIonInput={(e: any) =>
                         updateStocksCompleted(
                           worker.workerID,
+                          worker.rowNumber,
+                          worker.jobType,
                           parseInt(e.target.value) || 0
                         )
                       }

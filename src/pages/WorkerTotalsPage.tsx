@@ -366,7 +366,7 @@ const WorkerTotalsPage: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Worker Daily Totals</IonTitle>
+          {/* <IonTitle>Worker Daily Totals</IonTitle> */}
         </IonToolbar>
       </IonHeader>
 
@@ -577,7 +577,7 @@ const WorkerTotalsPage: React.FC = () => {
                       </th>
                     ))}
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase bg-blue-50 sticky right-0 z-10">
-                      Grand Total
+                      Total
                     </th>
                   </tr>
                 </thead>
