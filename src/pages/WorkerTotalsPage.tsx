@@ -20,6 +20,8 @@ import {
   IonSelectOption,
   IonItem,
   IonLabel,
+  IonCard,
+  IonCardContent,
 } from "@ionic/react";
 import { ApiService } from "../services/api";
 
@@ -56,7 +58,6 @@ interface ProcessedWorkerData {
   rows: ProcessedRow[];
   dailyTotals: { [date: string]: number };
   grandTotal: number;
-  filteredTotal?: number; // Add this for sorting filtered results
 }
 
 const WorkerTotalsPage: React.FC = () => {
@@ -73,20 +74,17 @@ const WorkerTotalsPage: React.FC = () => {
   const [allDates, setAllDates] = useState<string[]>([]);
   const [uniqueBlocks, setUniqueBlocks] = useState<string[]>([]);
   const [uniqueJobTypes, setUniqueJobTypes] = useState<string[]>([]);
-
-  // Pagination for dates - responsive
   const [currentDatePage, setCurrentDatePage] = useState(0);
   const [datesPerPage, setDatesPerPage] = useState(3);
 
-  // Adjust dates per page based on screen size
   useEffect(() => {
     const updateDatesPerPage = () => {
       if (window.innerWidth < 640) {
-        setDatesPerPage(2); // Mobile: show 2 dates
+        setDatesPerPage(2);
       } else if (window.innerWidth < 1024) {
-        setDatesPerPage(3); // Tablet: show 3 dates
+        setDatesPerPage(3);
       } else {
-        setDatesPerPage(3); // Desktop: show 3 dates
+        setDatesPerPage(4);
       }
     };
 
@@ -102,65 +100,79 @@ const WorkerTotalsPage: React.FC = () => {
     const blocksSet = new Set<string>();
     const jobTypesSet = new Set<string>();
 
-    const processed = rawWorkers.map((worker) => {
-      const rows: ProcessedRow[] = [];
-      const workerDailyTotals: { [date: string]: number } = {};
+    const processed = rawWorkers
+      .filter(
+        (worker) => worker && worker.blocks && Array.isArray(worker.blocks)
+      )
+      .map((worker) => {
+        const rows: ProcessedRow[] = [];
+        const workerDailyTotals: { [date: string]: number } = {};
 
-      worker.blocks.forEach((block) => {
-        blocksSet.add(block.block_name);
+        worker.blocks.forEach((block) => {
+          if (!block || !block.block_name || !Array.isArray(block.rows)) return;
 
-        block.rows.forEach((row) => {
-          const dateOnly = row.date.split("T")[0];
-          datesSet.add(dateOnly);
-          const jobType = (row.job_type || "other").toLowerCase();
-          jobTypesSet.add(jobType);
+          blocksSet.add(block.block_name);
 
-          let rowEntry = rows.find(
-            (r) =>
-              r.blockName === block.block_name && r.rowNumber === row.row_number
-          );
+          block.rows.forEach((row) => {
+            if (!row || !row.date || row.stock_count === undefined) return;
 
-          if (!rowEntry) {
-            rowEntry = {
-              blockName: block.block_name,
-              rowNumber: row.row_number,
-              jobType: jobType,
-              dailyTotals: {},
-              total: 0,
-            };
-            rows.push(rowEntry);
-          }
+            const dateOnly = row.date.split("T")[0];
+            datesSet.add(dateOnly);
+            const jobType = (row.job_type || "other").toLowerCase();
+            jobTypesSet.add(jobType);
 
-          rowEntry.dailyTotals[dateOnly] =
-            (rowEntry.dailyTotals[dateOnly] || 0) + row.stock_count;
-          rowEntry.total += row.stock_count;
+            let rowEntry = rows.find(
+              (r) =>
+                r.blockName === block.block_name &&
+                r.rowNumber === row.row_number
+            );
 
-          workerDailyTotals[dateOnly] =
-            (workerDailyTotals[dateOnly] || 0) + row.stock_count;
+            if (!rowEntry) {
+              rowEntry = {
+                blockName: block.block_name || "",
+                rowNumber: row.row_number || "",
+                jobType: jobType,
+                dailyTotals: {},
+                total: 0,
+              };
+              rows.push(rowEntry);
+            }
+
+            rowEntry.dailyTotals[dateOnly] =
+              (rowEntry.dailyTotals[dateOnly] || 0) + row.stock_count;
+            rowEntry.total += row.stock_count;
+
+            workerDailyTotals[dateOnly] =
+              (workerDailyTotals[dateOnly] || 0) + row.stock_count;
+          });
         });
-      });
 
-      return {
-        _id: worker._id,
-        workerID: worker.workerID,
-        name: worker.name,
-        rows: rows.sort((a, b) => {
-          if (a.blockName !== b.blockName) {
-            return a.blockName.localeCompare(b.blockName);
-          }
-          return a.rowNumber.localeCompare(b.rowNumber);
-        }),
-        dailyTotals: workerDailyTotals,
-        grandTotal: worker.total_stock_count,
-      };
-    });
+        return {
+          _id: worker._id || "",
+          workerID: worker.workerID || "",
+          name: worker.name || "Unknown",
+          rows: rows.sort((a, b) => {
+            const blockA = a.blockName || "";
+            const blockB = b.blockName || "";
+            if (blockA !== blockB) {
+              return blockA.localeCompare(blockB);
+            }
+            const rowA = a.rowNumber || "";
+            const rowB = b.rowNumber || "";
+            return rowA.localeCompare(rowB);
+          }),
+          dailyTotals: workerDailyTotals,
+          grandTotal: worker.total_stock_count || 0,
+        };
+      })
+      .filter((worker) => worker.rows.length > 0);
 
     const sortedDates = Array.from(datesSet).sort();
     setAllDates(sortedDates);
     setUniqueBlocks(Array.from(blocksSet).sort());
     setUniqueJobTypes(Array.from(jobTypesSet).sort());
 
-    return processed.sort((a, b) => b.grandTotal - a.grandTotal);
+    return processed.sort((a, b) => (b.grandTotal || 0) - (a.grandTotal || 0));
   };
 
   const fetchWorkers = async () => {
@@ -210,9 +222,16 @@ const WorkerTotalsPage: React.FC = () => {
           filteredRows = filteredRows.filter((row) => row.jobType === jobType);
         }
 
-        return { ...worker, rows: filteredRows };
+        // Calculate filtered total for this worker
+        const filteredTotal = filteredRows.reduce(
+          (sum, row) => sum + row.total,
+          0
+        );
+
+        return { ...worker, rows: filteredRows, filteredTotal };
       })
-      .filter((worker) => worker.rows.length > 0);
+      .filter((worker) => worker.rows.length > 0)
+      .sort((a, b) => (b.filteredTotal || 0) - (a.filteredTotal || 0));
 
     setFilteredWorkers(filtered);
   };
@@ -238,7 +257,6 @@ const WorkerTotalsPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate pagination
   const totalDatePages = Math.ceil(allDates.length / datesPerPage);
   const startDateIndex = currentDatePage * datesPerPage;
   const endDateIndex = Math.min(startDateIndex + datesPerPage, allDates.length);
@@ -263,7 +281,6 @@ const WorkerTotalsPage: React.FC = () => {
   );
 
   const exportToPDF = () => {
-    // Create a printable view
     const printContent = `
       <!DOCTYPE html>
       <html>
@@ -350,7 +367,6 @@ const WorkerTotalsPage: React.FC = () => {
       </html>
     `;
 
-    // Open print dialog
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(printContent);
@@ -362,89 +378,259 @@ const WorkerTotalsPage: React.FC = () => {
     }
   };
 
+  const styles = {
+    container: {
+      padding: "16px",
+    },
+    header: {
+      marginBottom: "24px",
+    },
+    title: {
+      fontSize: "24px",
+      fontWeight: "bold",
+      color: "#111827",
+      margin: "0 0 8px 0",
+    },
+    subtitle: {
+      fontSize: "14px",
+      color: "#4b5563",
+      margin: "8px 0 0 0",
+    },
+    buttonGroup: {
+      display: "flex",
+      gap: "8px",
+      marginTop: "16px",
+      flexWrap: "wrap" as const,
+    },
+    summaryGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+      gap: "16px",
+      marginBottom: "24px",
+    },
+    card: {
+      padding: "16px",
+      border: "1px solid #e5e7eb",
+      borderRadius: "8px",
+      backgroundColor: "#ffffff",
+    },
+    cardContent: {
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+    },
+    cardText: {
+      fontSize: "12px",
+      color: "#6b7280",
+      margin: "0 0 4px 0",
+    },
+    cardValue: {
+      fontSize: "24px",
+      fontWeight: "600",
+      color: "#111827",
+      margin: "0",
+    },
+    filterSection: {
+      marginBottom: "16px",
+    },
+    workerCard: {
+      marginBottom: "16px",
+      padding: "12px",
+      border: "1px solid #e5e7eb",
+      borderRadius: "8px",
+      backgroundColor: "#ffffff",
+    },
+    workerHeader: {
+      marginBottom: "12px",
+      paddingBottom: "12px",
+      borderBottom: "1px solid #f3f4f6",
+    },
+    workerName: {
+      fontSize: "16px",
+      fontWeight: "600",
+      color: "#111827",
+      margin: "0 0 4px 0",
+    },
+    workerId: {
+      fontSize: "12px",
+      color: "#6b7280",
+      margin: "0",
+    },
+    workerInfo: {
+      marginBottom: "12px",
+    },
+    infoLabel: {
+      fontSize: "12px",
+      fontWeight: "600",
+      color: "#6b7280",
+      margin: "0 0 4px 0",
+    },
+    infoValue: {
+      fontSize: "13px",
+      color: "#111827",
+      margin: "0",
+    },
+    dailyRow: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))",
+      gap: "8px",
+      marginTop: "12px",
+      paddingTop: "12px",
+      borderTop: "1px solid #f3f4f6",
+    },
+    dailyItem: {
+      textAlign: "center" as const,
+    },
+    dailyDate: {
+      fontSize: "11px",
+      fontWeight: "600",
+      color: "#6b7280",
+      margin: "0 0 4px 0",
+    },
+    dailyValue: {
+      fontSize: "16px",
+      fontWeight: "600",
+      color: "#1f2937",
+      margin: "0",
+    },
+    totalValue: {
+      fontSize: "16px",
+      fontWeight: "700",
+      color: "#1e40af",
+      backgroundColor: "#eff6ff",
+      padding: "8px",
+      borderRadius: "4px",
+      textAlign: "center" as const,
+      margin: "0",
+    },
+    badge: {
+      display: "inline-block",
+      padding: "4px 8px",
+      backgroundColor: "#dbeafe",
+      color: "#1e40af",
+      borderRadius: "12px",
+      fontSize: "11px",
+      fontWeight: "600",
+      marginRight: "4px",
+      marginBottom: "4px",
+      textTransform: "capitalize" as const,
+    },
+    paginationContainer: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: "16px",
+      padding: "12px",
+      backgroundColor: "#ffffff",
+      border: "1px solid #e5e7eb",
+      borderRadius: "8px",
+      flexWrap: "wrap" as const,
+      gap: "12px",
+    },
+    paginationText: {
+      fontSize: "12px",
+      color: "#6b7280",
+    },
+    paginationButtons: {
+      display: "flex",
+      gap: "8px",
+      alignItems: "center",
+    },
+    errorBox: {
+      padding: "12px",
+      backgroundColor: "#fef2f2",
+      border: "1px solid #fecaca",
+      borderRadius: "8px",
+      marginBottom: "16px",
+    },
+    errorText: {
+      color: "#dc2626",
+      fontSize: "14px",
+      margin: "0",
+    },
+    emptyState: {
+      padding: "32px 16px",
+      textAlign: "center" as const,
+      color: "#6b7280",
+    },
+    loadingState: {
+      padding: "32px 16px",
+      textAlign: "center" as const,
+      color: "#6b7280",
+    },
+    footer: {
+      marginTop: "16px",
+      textAlign: "center" as const,
+      fontSize: "12px",
+      color: "#6b7280",
+    },
+  };
+
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar>
-          {/* <IonTitle>Worker Daily Totals</IonTitle> */}
-        </IonToolbar>
+        <IonToolbar></IonToolbar>
       </IonHeader>
 
-      <IonContent className="ion-padding">
-        <div className="max-w-full mx-auto">
-          {/* Header Section */}
-          <div className="mb-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Worker Daily Totals
-                </h1>
-                {lastUpdated && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Last updated: {lastUpdated.toLocaleString()}
-                  </p>
-                )}
-              </div>
+      <IonContent>
+        <div style={styles.container}>
+          {/* Header */}
+          <div style={styles.header}>
+            <h1 style={styles.title}>Worker Daily Totals</h1>
+            {lastUpdated && (
+              <p style={styles.subtitle}>
+                Last updated: {lastUpdated.toLocaleString()}
+              </p>
+            )}
+            <div style={styles.buttonGroup}>
+              <IonButton
+                fill="outline"
+                onClick={fetchWorkers}
+                disabled={loading}
+              >
+                <RefreshCw
+                  size={16}
+                  style={{ marginRight: "8px" }}
+                  className={loading ? "animate-spin" : ""}
+                />
+                Refresh
+              </IonButton>
 
-              <div className="flex gap-2">
-                <IonButton
-                  fill="outline"
-                  onClick={fetchWorkers}
-                  disabled={loading}
-                >
-                  <RefreshCw
-                    size={16}
-                    className={loading ? "animate-spin" : ""}
-                  />
-                  Refresh
-                </IonButton>
-
-                <IonButton fill="solid" onClick={exportToPDF}>
-                  <Download size={16} />
-                  Export PDF
-                </IonButton>
-              </div>
+              <IonButton fill="solid" onClick={exportToPDF}>
+                <Download size={16} style={{ marginRight: "8px" }} />
+                Export PDF
+              </IonButton>
             </div>
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
-              <div className="flex items-center">
-                <Users className="h-8 w-8 text-blue-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600">
-                    Total Workers
-                  </p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {totalWorkers}
-                  </p>
+          <div style={styles.summaryGrid}>
+            <div style={styles.card}>
+              <div style={styles.cardContent}>
+                <Users size={32} color="#2563eb" />
+                <div>
+                  <p style={styles.cardText}>Total Workers</p>
+                  <p style={styles.cardValue}>{totalWorkers}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
-              <div className="flex items-center">
-                <TrendingUp className="h-8 w-8 text-green-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600">
-                    Total Vines
-                  </p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {totalVines.toLocaleString()}
-                  </p>
+            <div style={styles.card}>
+              <div style={styles.cardContent}>
+                <TrendingUp size={32} color="#16a34a" />
+                <div>
+                  <p style={styles.cardText}>Total Vines</p>
+                  <p style={styles.cardValue}>{totalVines.toLocaleString()}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
-              <div className="flex items-center">
-                <Calendar className="h-8 w-8 text-purple-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-600">
-                    Date Range
-                  </p>
-                  <p className="text-sm font-semibold text-gray-900">
+            <div style={styles.card}>
+              <div style={styles.cardContent}>
+                <Calendar size={32} color="#9333ea" />
+                <div>
+                  <p style={styles.cardText}>Date Range</p>
+                  <p style={styles.cardValue}>
                     {allDates.length > 0 ? `${allDates.length} days` : "N/A"}
                   </p>
                 </div>
@@ -452,241 +638,178 @@ const WorkerTotalsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Filters Section */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex-1">
-                <IonSearchbar
-                  value={searchText}
-                  onIonInput={(e) => handleSearch(e.detail.value!)}
-                  placeholder="Search worker, block, or row..."
-                  showClearButton="focus"
-                />
-              </div>
+          {/* Filters */}
+          <div style={styles.filterSection}>
+            <IonSearchbar
+              value={searchText}
+              onIonInput={(e) => handleSearch(e.detail.value!)}
+              placeholder="Search worker, block, or row..."
+              showClearButton="focus"
+            />
 
-              <div>
-                <IonItem>
-                  <IonLabel>Block Filter</IonLabel>
-                  <IonSelect
-                    value={selectedBlock}
-                    placeholder="All Blocks"
-                    onIonChange={(e) => handleBlockFilter(e.detail.value)}
-                  >
-                    <IonSelectOption value="all">All Blocks</IonSelectOption>
-                    {uniqueBlocks.map((block) => (
-                      <IonSelectOption key={block} value={block}>
-                        {block}
-                      </IonSelectOption>
-                    ))}
-                  </IonSelect>
-                </IonItem>
-              </div>
+            <IonItem>
+              <IonLabel>Block Filter</IonLabel>
+              <IonSelect
+                value={selectedBlock}
+                placeholder="All Blocks"
+                onIonChange={(e) => handleBlockFilter(e.detail.value)}
+              >
+                <IonSelectOption value="all">All Blocks</IonSelectOption>
+                {uniqueBlocks.map((block) => (
+                  <IonSelectOption key={block} value={block}>
+                    {block}
+                  </IonSelectOption>
+                ))}
+              </IonSelect>
+            </IonItem>
 
-              <div>
-                <IonItem>
-                  <IonLabel>Job Type Filter</IonLabel>
-                  <IonSelect
-                    value={selectedJobType}
-                    placeholder="All Job Types"
-                    onIonChange={(e) => handleJobTypeFilter(e.detail.value)}
-                  >
-                    <IonSelectOption value="all">All Job Types</IonSelectOption>
-                    {uniqueJobTypes.map((jobType) => (
-                      <IonSelectOption key={jobType} value={jobType}>
-                        {jobType}
-                      </IonSelectOption>
-                    ))}
-                  </IonSelect>
-                </IonItem>
-              </div>
-            </div>
+            <IonItem>
+              <IonLabel>Job Type Filter</IonLabel>
+              <IonSelect
+                value={selectedJobType}
+                placeholder="All Job Types"
+                onIonChange={(e) => handleJobTypeFilter(e.detail.value)}
+              >
+                <IonSelectOption value="all">All Job Types</IonSelectOption>
+                {uniqueJobTypes.map((jobType) => (
+                  <IonSelectOption key={jobType} value={jobType}>
+                    {jobType}
+                  </IonSelectOption>
+                ))}
+              </IonSelect>
+            </IonItem>
           </div>
 
-          {/* Date Pagination Controls */}
+          {/* Date Pagination */}
           {allDates.length > datesPerPage && (
-            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  Showing dates {startDateIndex + 1} - {endDateIndex} of{" "}
-                  {allDates.length}
-                </div>
-                <div className="flex gap-2 items-center">
-                  <IonButton
-                    fill="outline"
-                    size="small"
-                    onClick={goToPreviousPage}
-                    disabled={currentDatePage === 0}
-                  >
-                    <ChevronLeft size={16} />
-                    Previous
-                  </IonButton>
-                  <span className="px-4 py-2 text-sm text-gray-700">
-                    Page {currentDatePage + 1} of {totalDatePages}
-                  </span>
-                  <IonButton
-                    fill="outline"
-                    size="small"
-                    onClick={goToNextPage}
-                    disabled={currentDatePage >= totalDatePages - 1}
-                  >
-                    Next
-                    <ChevronRight size={16} />
-                  </IonButton>
-                </div>
+            <div style={styles.paginationContainer}>
+              <div style={styles.paginationText}>
+                Showing dates {startDateIndex + 1} - {endDateIndex} of{" "}
+                {allDates.length}
+              </div>
+              <div style={styles.paginationButtons}>
+                <IonButton
+                  fill="outline"
+                  size="small"
+                  onClick={goToPreviousPage}
+                  disabled={currentDatePage === 0}
+                >
+                  <ChevronLeft size={16} />
+                  Previous
+                </IonButton>
+                <span style={styles.paginationText}>
+                  Page {currentDatePage + 1} of {totalDatePages}
+                </span>
+                <IonButton
+                  fill="outline"
+                  size="small"
+                  onClick={goToNextPage}
+                  disabled={currentDatePage >= totalDatePages - 1}
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </IonButton>
               </div>
             </div>
           )}
 
-          {/* Error Message */}
+          {/* Error */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-              <div className="text-red-600 text-sm">
+            <div style={styles.errorBox}>
+              <p style={styles.errorText}>
                 <strong>Error:</strong> {error}
-              </div>
+              </p>
             </div>
           )}
 
-          {/* Workers Table */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase sticky left-0 bg-gray-50 z-10">
-                      Worker
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Blocks
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Rows
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Job Types
-                    </th>
-                    {currentPageDates.map((date) => (
-                      <th
-                        key={date}
-                        className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase whitespace-nowrap"
-                      >
-                        {new Date(date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </th>
-                    ))}
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase bg-blue-50 sticky right-0 z-10">
-                      Total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loading ? (
-                    <tr>
-                      <td
-                        colSpan={5 + currentPageDates.length}
-                        className="px-6 py-4 text-center text-gray-500"
-                      >
-                        <RefreshCw
-                          className="animate-spin mx-auto mb-2"
-                          size={24}
-                        />
-                        Loading workers...
-                      </td>
-                    </tr>
-                  ) : filteredWorkers.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={5 + currentPageDates.length}
-                        className="px-6 py-4 text-center text-gray-500"
-                      >
-                        No workers found
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredWorkers.map((worker) => {
-                      // Get unique blocks, rows, and job types for this worker
-                      const blocks = [
-                        ...new Set(worker.rows.map((r) => r.blockName)),
-                      ].join(", ");
-                      const rows = [
-                        ...new Set(worker.rows.map((r) => r.rowNumber)),
-                      ]
-                        .sort((a, b) => {
-                          const numA = parseInt(a);
-                          const numB = parseInt(b);
-                          return numA - numB;
-                        })
-                        .join(", ");
-                      const jobTypes = [
-                        ...new Set(worker.rows.map((r) => r.jobType)),
-                      ].join(", ");
-
-                      return (
-                        <tr key={worker._id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap sticky left-0 bg-white hover:bg-gray-50 z-10">
-                            <div className="text-sm font-medium text-gray-900">
-                              {worker.name}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {worker.workerID}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            <div className="max-w-xs truncate" title={blocks}>
-                              {blocks}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            <div className="max-w-xs truncate" title={rows}>
-                              {rows}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-1">
-                              {[
-                                ...new Set(worker.rows.map((r) => r.jobType)),
-                              ].map((jobType, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 capitalize whitespace-nowrap"
-                                >
-                                  {jobType}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          {currentPageDates.map((date) => (
-                            <td
-                              key={date}
-                              className="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-900"
-                            >
-                              {worker.dailyTotals[date] || "-"}
-                            </td>
-                          ))}
-                          <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-bold text-gray-900 bg-blue-50 sticky right-0 z-10">
-                            {worker.rows.reduce(
-                              (sum, row) => sum + row.total,
-                              0
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+          {/* Workers List */}
+          {loading ? (
+            <div style={styles.loadingState}>
+              <RefreshCw
+                size={24}
+                style={{
+                  marginBottom: "12px",
+                  animation: "spin 1s linear infinite",
+                }}
+              />
+              <p>Loading workers...</p>
             </div>
-          </div>
+          ) : filteredWorkers.length === 0 ? (
+            <div style={styles.emptyState}>
+              <p>No workers found</p>
+            </div>
+          ) : (
+            filteredWorkers.map((worker) => {
+              const blocks = [
+                ...new Set(worker.rows.map((r) => r.blockName)),
+              ].join(", ");
+              const rows = [...new Set(worker.rows.map((r) => r.rowNumber))]
+                .sort((a, b) => parseInt(a) - parseInt(b))
+                .join(", ");
+
+              return (
+                <div key={worker._id} style={styles.workerCard}>
+                  <div style={styles.workerHeader}>
+                    <p style={styles.workerName}>{worker.name}</p>
+                    <p style={styles.workerId}>{worker.workerID}</p>
+                  </div>
+
+                  <div style={styles.workerInfo}>
+                    <p style={styles.infoLabel}>Blocks</p>
+                    <p style={styles.infoValue}>{blocks || "N/A"}</p>
+                  </div>
+
+                  <div style={styles.workerInfo}>
+                    <p style={styles.infoLabel}>Rows</p>
+                    <p style={styles.infoValue}>{rows || "N/A"}</p>
+                  </div>
+
+                  <div style={styles.workerInfo}>
+                    <p style={styles.infoLabel}>Job Types</p>
+                    <div>
+                      {[...new Set(worker.rows.map((r) => r.jobType))].map(
+                        (jobType, idx) => (
+                          <span key={idx} style={styles.badge}>
+                            {jobType}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={styles.dailyRow}>
+                    {currentPageDates.map((date) => (
+                      <div key={date} style={styles.dailyItem}>
+                        <p style={styles.dailyDate}>
+                          {new Date(date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </p>
+                        <p style={styles.dailyValue}>
+                          {worker.dailyTotals[date] || "-"}
+                        </p>
+                      </div>
+                    ))}
+                    <div style={styles.dailyItem}>
+                      <p style={styles.dailyDate}>TOTAL</p>
+                      <p style={styles.totalValue}>
+                        {worker.rows.reduce((sum, row) => sum + row.total, 0)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
 
           {/* Footer */}
-          <div className="mt-4 text-center text-sm text-gray-500">
+          <div style={styles.footer}>
             Showing {filteredWorkers.length} of {workers.length} workers
             {(searchText ||
               selectedBlock !== "all" ||
               selectedJobType !== "all") && (
-              <span className="ml-2 text-blue-600">(filtered)</span>
+              <span style={{ color: "#2563eb" }}> (filtered)</span>
             )}
           </div>
         </div>

@@ -10,6 +10,7 @@ import {
   IonCardTitle,
   IonAlert,
   IonToast,
+  IonCheckbox,
 } from "@ionic/react";
 import {
   FormControl,
@@ -26,14 +27,19 @@ import QRScanner from "../components/QrScanner";
 import { notifySuccess, notifyError } from "../utils/notify";
 import { SelectChangeEvent } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircleIcon, ChevronDownIcon, AlertCircle } from "lucide-react";
+import {
+  CheckCircleIcon,
+  ChevronDownIcon,
+  AlertCircle,
+  AlertTriangle,
+} from "lucide-react";
 import "./Checkin.css";
 import beepSound from "../assets/sounds/scan-beep.mp3";
 
 const successSound = new Audio(beepSound);
 
 const apiBaseUrl =
-  "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api";
+  "https://farm-server-02-961069822730.europe-west1.run.app/api";
 
 const JOB_TYPES = [
   "PRUNING",
@@ -62,6 +68,14 @@ const CheckIn: React.FC = () => {
   const [formStep, setFormStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
+  // ✅ NEW: Override functionality
+  const [allowMultipleWorkers, setAllowMultipleWorkers] = useState(false);
+  const [showConflictAlert, setShowConflictAlert] = useState(false);
+  const [conflictData, setConflictData] = useState<{
+    message: string;
+    existingWorker: string;
+  } | null>(null);
+
   const history = useHistory();
   const location = useLocation();
 
@@ -70,19 +84,45 @@ const CheckIn: React.FC = () => {
   }, [location.pathname]);
 
   useEffect(() => {
-    fetch(apiBaseUrl + "/blocks")
-      .then((response) => response.json())
-      .then((data) => {
-        // Sort blocks in ascending order
-        const sortedBlocks = [...data].sort((a: string, b: string) =>
-          a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
-        );
-        setBlocks(sortedBlocks);
-      })
-      .catch((error) => {
-        setAlertMessage(`Error fetching blocks: ${error.message}`);
-        setShowAlert(true);
-      });
+    // TEMP: mock data for local testing
+    const mockBlocks = [
+      "Block 1",
+      "Block 2",
+      "Block 3",
+      "Block 4",
+      "Block 5",
+      "Block 6",
+      "Block 7",
+      "Block 8",
+      "Block 9",
+      "Block 10",
+      "Block 11",
+      "Block 12",
+      "Block 13",
+      "Block 14",
+      "Block 15",
+      "Block 16",
+      "Block 17",
+      "Block 18",
+      "Block 19",
+    ];
+    setBlocks(mockBlocks);
+
+    // If you want to use backend later, comment out mock and uncomment below
+    /*
+  fetch (apiBaseUrl + "/blocks")
+    .then((response) => response.json())
+    .then((data) => {
+      const sortedBlocks = [...data].sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+      );
+      setBlocks(sortedBlocks);
+    })
+    .catch((error) => {
+      setAlertMessage(`Error fetching blocks: ${error.message}`);
+      setShowAlert(true);
+    });
+  */
   }, []);
 
   const resetForm = () => {
@@ -92,6 +132,7 @@ const CheckIn: React.FC = () => {
     setIsBlockDropdownOpen(false);
     setIsLoading(false);
     setErrorMessage("");
+    setAllowMultipleWorkers(false);
   };
 
   // Bidirectional auto-increment
@@ -132,6 +173,7 @@ const CheckIn: React.FC = () => {
     setWorkerName("");
     setWorkerID("");
     setErrorMessage("");
+    setAllowMultipleWorkers(false);
 
     if (rowNumber) {
       const nextRow = autoIncrementRow(rowNumber, rowDirection);
@@ -190,7 +232,8 @@ const CheckIn: React.FC = () => {
     return jobType === "OTHER" ? customJobType : jobType;
   };
 
-  const handleCheckIn = async () => {
+  // ✅ NEW: Modified handleCheckIn with override support
+  const handleCheckIn = async (override: boolean = false) => {
     const effectiveJobType = getEffectiveJobType();
 
     if (
@@ -208,32 +251,59 @@ const CheckIn: React.FC = () => {
     setIsLoading(true);
     setErrorMessage("");
 
+    // ✅ DEBUG: Log what we're sending
+    const requestBody = {
+      workerID,
+      workerName,
+      blockName,
+      rowNumber,
+      jobType: effectiveJobType,
+      allowMultipleWorkers: override || allowMultipleWorkers,
+    };
+    console.log("=== FRONTEND: Sending check-in request ===");
+    console.log("URL:", apiBaseUrl + "/checkin");
+    console.log("Request Body:", requestBody);
+    console.log("override:", override);
+    console.log("allowMultipleWorkers checkbox:", allowMultipleWorkers);
+
     try {
       const response = await fetch(apiBaseUrl + "/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workerID,
-          workerName,
-          blockName,
-          rowNumber,
-          jobType: effectiveJobType,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log("=== FRONTEND: Response received ===");
+      console.log("Status:", response.status);
+      console.log("OK:", response.ok);
 
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 409) {
+        if (response.status === 409 && data.canOverride) {
+          // ✅ NEW: Handle conflict that can be overridden
+          setConflictData({
+            message: data.message,
+            existingWorker: data.existingWorker,
+          });
+          setShowConflictAlert(true);
+          setIsLoading(false);
+        } else if (response.status === 409) {
           setErrorMessage(data.message);
           notifyError(data.message);
+          setIsLoading(false);
         } else {
           setErrorMessage(data.message || "Check-in failed");
           notifyError(data.message || "Check-in failed");
+          setIsLoading(false);
         }
       } else {
         console.log("Check-in successful:", data);
-        notifySuccess("Check-in successful!");
+        notifySuccess(
+          data.multipleWorkersAllowed
+            ? "Check-in successful! Multiple workers on same row."
+            : "Check-in successful!"
+        );
         setFormStep(2);
         setShowToast(true);
         setTimeout(() => {
@@ -244,9 +314,14 @@ const CheckIn: React.FC = () => {
       const errorMsg = "An error occurred during check-in.";
       setErrorMessage(errorMsg);
       notifyError(errorMsg);
-    } finally {
       setIsLoading(false);
     }
+  };
+
+  // ✅ NEW: Handle override confirmation
+  const handleOverrideCheckIn = () => {
+    setShowConflictAlert(false);
+    handleCheckIn(true);
   };
 
   const handleFullReset = () => {
@@ -260,6 +335,7 @@ const CheckIn: React.FC = () => {
     setIsBlockDropdownOpen(false);
     setIsLoading(false);
     setErrorMessage("");
+    setAllowMultipleWorkers(false);
   };
 
   return (
@@ -688,6 +764,72 @@ const CheckIn: React.FC = () => {
                         </Select>
                       </FormControl>
 
+                      {/* ✅ NEW: Override checkbox */}
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        style={{
+                          backgroundColor: "#fef3c7",
+                          border: "1px solid #f59e0b",
+                          borderRadius: "8px",
+                          padding: "12px",
+                          marginBottom: "20px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "start" }}>
+                          <AlertTriangle
+                            size={20}
+                            color="#f59e0b"
+                            style={{
+                              marginRight: "8px",
+                              marginTop: "2px",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <label
+                              style={{
+                                display: "flex",
+                                alignItems: "start",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <IonCheckbox
+                                checked={allowMultipleWorkers}
+                                onIonChange={(e) =>
+                                  setAllowMultipleWorkers(e.detail.checked)
+                                }
+                                style={{ marginTop: "2px", marginRight: "8px" }}
+                              />
+                              <div>
+                                <span
+                                  style={{
+                                    fontSize: "14px",
+                                    fontWeight: "500",
+                                    color: "#92400e",
+                                    display: "block",
+                                  }}
+                                >
+                                  Allow multiple workers on same row
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: "12px",
+                                    color: "#92400e",
+                                    display: "block",
+                                    marginTop: "4px",
+                                  }}
+                                >
+                                  Enable this only when multiple workers need to
+                                  work on the same row simultaneously (e.g.,
+                                  during busy periods)
+                                </span>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                      </motion.div>
+
                       <div
                         style={{
                           display: "flex",
@@ -706,7 +848,7 @@ const CheckIn: React.FC = () => {
                         </Button>
                         <Button
                           variant="contained"
-                          onClick={handleCheckIn}
+                          onClick={() => handleCheckIn(false)}
                           disabled={
                             !blockName ||
                             !rowNumber ||
@@ -787,6 +929,7 @@ const CheckIn: React.FC = () => {
             </IonCard>
           </motion.div>
         </motion.div>
+
         <div className="mt-8 flex justify-center space-x-4">
           <motion.button
             className="px-5 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-sm"
@@ -813,6 +956,31 @@ const CheckIn: React.FC = () => {
             Go to Checkout
           </motion.button>
         </div>
+
+        {/* ✅ NEW: Conflict Alert */}
+        <IonAlert
+          isOpen={showConflictAlert}
+          onDidDismiss={() => setShowConflictAlert(false)}
+          header="Row Already Occupied"
+          message={
+            conflictData
+              ? `${conflictData.message}\n\n${conflictData.existingWorker} is currently working on this row.\n\nDo you want to allow ${workerName} to work on the same row?`
+              : ""
+          }
+          buttons={[
+            {
+              text: "Cancel",
+              role: "cancel",
+              handler: () => {
+                setIsLoading(false);
+              },
+            },
+            {
+              text: "Yes, Allow Both Workers",
+              handler: handleOverrideCheckIn,
+            },
+          ]}
+        />
       </IonContent>
       <Footer />
     </IonPage>
