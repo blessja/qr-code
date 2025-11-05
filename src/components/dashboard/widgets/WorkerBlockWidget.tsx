@@ -17,6 +17,7 @@ import {
 } from "@ionic/react";
 import { RefreshCw, LogOut, CheckCircle, X } from "lucide-react";
 import { WorkerBlockData } from "../../../utils/mockData";
+import config from "../../../config";
 
 interface WorkerBlockWidgetProps {
   title: string;
@@ -52,8 +53,7 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  const apiBaseUrl =
-    "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api";
+  // const apiBaseUrl = "https://farm-server-02.onrender.com/api";
 
   // ✅ FIX 1: Create unique key for each worker entry
   const getWorkerKey = (worker: WorkerBlockData) => {
@@ -154,7 +154,7 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
     setCheckoutLoading(true);
 
     try {
-      const response = await fetch(apiBaseUrl + "/checkout", {
+      const response = await fetch(`${config.apiBaseUrl}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -209,7 +209,7 @@ const WorkerBlockWidget: React.FC<WorkerBlockWidgetProps> = ({
 
     try {
       const checkoutPromises = bulkCheckoutData.map((worker) =>
-        fetch(apiBaseUrl + "/checkout", {
+        fetch(`${config.apiBaseUrl}/checkout`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

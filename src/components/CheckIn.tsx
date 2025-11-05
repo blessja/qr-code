@@ -35,11 +35,9 @@ import {
 } from "lucide-react";
 import "./Checkin.css";
 import beepSound from "../assets/sounds/scan-beep.mp3";
+import config from "../config";
 
 const successSound = new Audio(beepSound);
-
-const apiBaseUrl =
-  "https://farm-server-02-961069822730.europe-west1.run.app/api";
 
 const JOB_TYPES = [
   "PRUNING",
@@ -110,7 +108,7 @@ const CheckIn: React.FC = () => {
 
     // If you want to use backend later, comment out mock and uncomment below
     /*
-  fetch (apiBaseUrl + "/blocks")
+  fetch(`${config.apiBaseUrl}/blocks`)
     .then((response) => response.json())
     .then((data) => {
       const sortedBlocks = [...data].sort((a, b) =>
@@ -261,13 +259,13 @@ const CheckIn: React.FC = () => {
       allowMultipleWorkers: override || allowMultipleWorkers,
     };
     console.log("=== FRONTEND: Sending check-in request ===");
-    console.log("URL:", apiBaseUrl + "/checkin");
+
     console.log("Request Body:", requestBody);
     console.log("override:", override);
     console.log("allowMultipleWorkers checkbox:", allowMultipleWorkers);
 
     try {
-      const response = await fetch(apiBaseUrl + "/checkin", {
+      const response = await fetch(`${config.apiBaseUrl}/checkin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),

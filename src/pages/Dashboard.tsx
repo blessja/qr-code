@@ -33,6 +33,7 @@ import Header from "../components/Header";
 import { motion } from "framer-motion";
 import { useHistory } from "react-router-dom";
 import { LogIn, LogOut } from "lucide-react";
+import config from "../config";
 
 interface RowAlert {
   workerId: string;
@@ -67,8 +68,7 @@ const Dashboard: React.FC = () => {
   const [swapLoading, setSwapLoading] = useState(false);
   const [blocks, setBlocks] = useState<string[]>([]);
 
-  const apiBaseUrl =
-    "https://farm-backend-fpbmfrgferdjdtah.southafricanorth-01.azurewebsites.net/api";
+  // const apiBaseUrl = "https://6c469024e214.ngrok-free.app/api";
 
   // Check for long work sessions (>2 hours)
   const checkForLongWorkSessions = (data: WorkerBlockData[]): RowAlert[] => {
@@ -126,7 +126,7 @@ const Dashboard: React.FC = () => {
     loadData();
 
     // Fetch blocks for reassignment
-    fetch(apiBaseUrl + "/blocks")
+    fetch(`${config.apiBaseUrl}/blocks`)
       .then((response) => response.json())
       .then((data) => setBlocks(data))
       .catch((error) => console.error("Error fetching blocks:", error));
@@ -170,7 +170,7 @@ const Dashboard: React.FC = () => {
       // Swap by checking out both workers and checking them back in with swapped locations
 
       // Checkout worker 1
-      await fetch(apiBaseUrl + "/checkout", {
+      await fetch(`${config.apiBaseUrl}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -184,7 +184,7 @@ const Dashboard: React.FC = () => {
       });
 
       // Checkout worker 2
-      await fetch(apiBaseUrl + "/checkout", {
+      await fetch(`${config.apiBaseUrl}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -198,7 +198,7 @@ const Dashboard: React.FC = () => {
       });
 
       // Check in worker 1 to worker 2's location
-      await fetch(apiBaseUrl + "/checkin", {
+      await fetch(`${config.apiBaseUrl}/checkin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -211,7 +211,7 @@ const Dashboard: React.FC = () => {
       });
 
       // Check in worker 2 to worker 1's location
-      await fetch(apiBaseUrl + "/checkin", {
+      await fetch(`${config.apiBaseUrl}/checkin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -252,7 +252,7 @@ const Dashboard: React.FC = () => {
 
     try {
       // Checkout from current location
-      await fetch(apiBaseUrl + "/checkout", {
+      await fetch(`${config.apiBaseUrl}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -266,7 +266,7 @@ const Dashboard: React.FC = () => {
       });
 
       // Check in to new location
-      await fetch(apiBaseUrl + "/checkin", {
+      await fetch(`${config.apiBaseUrl}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

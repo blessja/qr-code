@@ -36,6 +36,7 @@
     "@types/react-router": "^5.1.20",
     "@types/react-router-dom": "^5.3.3",
     "axios": "^1.7.7",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.23.22",
     "html5-qrcode": "^2.3.8",
     "ionicons": "^7.0.0",

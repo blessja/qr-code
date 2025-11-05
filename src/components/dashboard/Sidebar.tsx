@@ -14,6 +14,7 @@ import {
   UserXIcon,
   MenuIcon,
   XIcon,
+  Leaf,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -81,10 +82,10 @@ const Sidebar = () => {
       path: "/clocks",
     },
     {
-      id: "piecework",
-      icon: <FolderIcon size={20} />,
-      label: "Piece Work",
-      path: "/piecework_1",
+      id: "fast-piecework",
+      icon: <Leaf size={20} />, // or use an Ionicon
+      label: "Fast Piecework",
+      path: "/fast-piecework",
     },
   ];
 

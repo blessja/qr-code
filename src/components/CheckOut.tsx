@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import QRScanner from "./QrScanner";
 import beepSound from "../assets/sounds/scan-beep.mp3";
+import config from "../config";
 
 const successSound = new Audio(beepSound);
 
@@ -42,7 +43,7 @@ const CheckOut: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
-    fetch("https://farm-server-02-961069822730.europe-west1.run.app/api/blocks")
+    fetch(`${config.apiBaseUrl}/blocks`)
       .then((response) => response.json())
       .then((data) => {
         setBlocks(data);
@@ -53,9 +54,7 @@ const CheckOut: React.FC = () => {
 
   useEffect(() => {
     if (blockName) {
-      fetch(
-        `https://farm-server-02-961069822730.europe-west1.run.app/api/block/${blockName}/rows`
-      )
+      fetch(`${config.apiBaseUrl}/block/${blockName}/rows`)
         .then((response) => response.json())
         .then((data) => {
           setRows(data);
@@ -77,7 +76,7 @@ const CheckOut: React.FC = () => {
       console.log("Worker data parsed and set:", workerData);
 
       const response = await fetch(
-        `https://farm-server-02-961069822730.europe-west1.run.app/api/worker/${workerData.workerID}/current-checkin`
+        `${config.apiBaseUrl}/worker/${workerData.workerID}/current-checkin`
       );
 
       if (response.ok) {
@@ -156,21 +155,18 @@ const CheckOut: React.FC = () => {
     }
 
     try {
-      const response = await fetch(
-        "https://farm-server-02-961069822730.europe-west1.run.app/api/checkout",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workerID,
-            workerName,
-            blockName,
-            rowNumber,
-            stockCount: finalStockCount,
-            jobType,
-          }),
-        }
-      );
+      const response = await fetch(`${config.apiBaseUrl}/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workerID,
+          workerName,
+          blockName,
+          rowNumber,
+          stockCount: finalStockCount,
+          jobType,
+        }),
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -207,7 +203,7 @@ const CheckOut: React.FC = () => {
   ): Promise<number> => {
     try {
       const response = await fetch(
-        `https://farm-server-02-961069822730.europe-west1.run.app/api/worker/${workerID}/row/${rowNumber}/remaining-stocks`
+        `${config.apiBaseUrl}/worker/${workerID}/row/${rowNumber}/remaining-stocks`
       );
       if (response.ok) {
         const data = await response.json();

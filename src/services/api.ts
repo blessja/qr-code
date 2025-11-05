@@ -66,4 +66,25 @@ export class ApiService {
       throw error
     }
   }
+
+  // ✅ Get fast piecework totals (reads piecework_stock_count)
+  static async getFastPieceworkTotals(params?: {
+    jobType?: string;
+    date?: string;
+  }): Promise<any> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.jobType) queryParams.append('jobType', params.jobType);
+      if (params?.date) queryParams.append('date', params.date);
+      
+      const response = await apiClient.get(
+        `/fast-piecework/fast-totals?${queryParams.toString()}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching fast piecework totals:', error);
+      throw error;
+    }
+  }
+
 }
