@@ -30,8 +30,7 @@ import Header from "./Header";
 import Footer from "./Footer";
 import { useHistory } from "react-router-dom";
 
-const apiBaseUrl =
-  "https://farm-server-02-961069822730.europe-west1.run.app/api";
+const apiBaseUrl = "https://farm-server-02-production.up.railway.app/api";
 
 interface WorkerRow {
   blockName: string;

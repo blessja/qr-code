@@ -23,9 +23,10 @@ import Header from "./Header";
 import Footer from "./Footer";
 import QRScanner from "./QrScanner";
 import { useHistory } from "react-router-dom";
+import beepSound from "../assets/sounds/scan-beep.mp3";
 
-const apiBaseUrl =
-  "https://farm-server-02-961069822730.europe-west1.run.app/api";
+const apiBaseUrl = "https://farm-server-02-production.up.railway.app/api";
+const successSound = new Audio(beepSound);
 
 const FastPiecework: React.FC = () => {
   const [workerName, setWorkerName] = useState("");
@@ -44,11 +45,43 @@ const FastPiecework: React.FC = () => {
   const [formStep, setFormStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [successCount, setSuccessCount] = useState(0);
+  const [rowDirection, setRowDirection] = useState<"forward" | "reverse">(
+    "forward"
+  );
+  const [autoIncrement, setAutoIncrement] = useState(true);
 
   const history = useHistory();
-
   useEffect(() => {
-    fetch(apiBaseUrl + "/blocks")
+    // TEMP: mock data for local testing
+    const mockBlocks = [
+      "Block 1",
+      "Block 2",
+      "Block 3",
+      "Block 4",
+      "Block 5",
+      "Block 6",
+      "Block 7",
+      "Block 8",
+      "Block 9",
+      "Block 10",
+      "Block 11",
+      "Block 12",
+      "Block 13",
+      "Block 14",
+      "Block 15",
+      "Block 16",
+      "Block 17",
+      "Block 18",
+      "Block 19",
+    ];
+    setBlocks(mockBlocks);
+
+    const mockJobTypes = ["LEAF PICKING"];
+    setJobTypes(mockJobTypes);
+
+    // If you want to use backend later, comment out mock and uncomment below
+    /*
+    fetch(`${config.apiBaseUrl}/blocks`)
       .then((response) => response.json())
       .then((data) => {
         const sortedBlocks = [...data].sort((a, b) =>
@@ -60,14 +93,30 @@ const FastPiecework: React.FC = () => {
         setAlertMessage(`Error fetching blocks: ${error.message}`);
         setShowAlert(true);
       });
-
-    fetch(apiBaseUrl + "/fast-piecework/job-types")
-      .then((response) => response.json())
-      .then((data) => setJobTypes(data))
-      .catch((error) => {
-        console.error("Error fetching job types:", error);
-      });
+    */
   }, []);
+
+  // useEffect(() => {
+  //   fetch(apiBaseUrl + "/blocks")
+  //     .then((response) => response.json())
+  //     .then((data) => {
+  //       const sortedBlocks = [...data].sort((a, b) =>
+  //         a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+  //       );
+  //       setBlocks(sortedBlocks);
+  //     })
+  //     .catch((error) => {
+  //       setAlertMessage(`Error fetching blocks: ${error.message}`);
+  //       setShowAlert(true);
+  //     });
+
+  //   fetch(apiBaseUrl + "/fast-piecework/job-types")
+  //     .then((response) => response.json())
+  //     .then((data) => setJobTypes(data))
+  //     .catch((error) => {
+  //       console.error("Error fetching job types:", error);
+  //     });
+  // }, []);
 
   const resetOnlyWorker = () => {
     setWorkerName("");
@@ -75,6 +124,45 @@ const FastPiecework: React.FC = () => {
     setErrorMessage("");
     setFormStep(0);
     setIsLoading(false);
+  };
+  const parseRowNumber = (
+    row: string
+  ): { number: number; letter: string } | null => {
+    const match = row.match(/^(\d+)([A-Z])$/);
+    if (!match) return null;
+    return {
+      number: parseInt(match[1]),
+      letter: match[2],
+    };
+  };
+  const getNextRowNumber = (
+    currentRow: string,
+    direction: "forward" | "reverse"
+  ): string => {
+    const parsed = parseRowNumber(currentRow);
+    if (!parsed) return "";
+
+    const { number, letter } = parsed;
+
+    if (direction === "forward") {
+      // Forward: 1A -> 1B -> 2A -> 2B
+      if (letter === "A") {
+        return `${number}B`;
+      } else if (letter === "B") {
+        return `${number + 1}A`;
+      }
+    } else {
+      // Reverse: 50B -> 50A -> 49B -> 49A
+      if (letter === "B") {
+        return `${number}A`;
+      } else if (letter === "A") {
+        if (number > 1) {
+          return `${number - 1}B`;
+        }
+      }
+    }
+
+    return currentRow;
   };
 
   const handleScanSuccess = (workerData: {
@@ -85,11 +173,17 @@ const FastPiecework: React.FC = () => {
     setWorkerID(workerData.workerID);
     setErrorMessage("");
     setFormStep(1);
+    playSuccessSound();
+  };
+  const playSuccessSound = () => {
+    successSound.play().catch((error) => {
+      console.error("Sound playback error:", error);
+    });
   };
 
   const handleRowInputChange = (event: any) => {
     let input = event.target.value;
-    input = input.toUpperCase();
+    input = input.toUpperCase(); // Ensure uppercase
     setRowNumber(input);
     setErrorMessage("");
   };
@@ -149,6 +243,13 @@ const FastPiecework: React.FC = () => {
         );
         setShowToast(true);
         setSuccessCount(successCount + 1);
+
+        // Auto-increment row number if enabled
+        if (autoIncrement) {
+          const nextRow = getNextRowNumber(rowNumber, rowDirection);
+          setRowNumber(nextRow);
+        }
+
         setFormStep(2);
 
         setTimeout(() => {
@@ -462,6 +563,146 @@ const FastPiecework: React.FC = () => {
                       ))}
                     </IonSelect>
                   </IonItem>
+                  <div
+                    style={{
+                      backgroundColor: "#f3f4f6",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      padding: "12px",
+                      marginTop: "16px",
+                      marginBottom: "16px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: "12px",
+                      }}
+                    >
+                      <label
+                        style={{
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          color: "#374151",
+                        }}
+                      >
+                        Auto-Increment Rows
+                      </label>
+                      <input
+                        type="checkbox"
+                        checked={autoIncrement}
+                        onChange={(e) => setAutoIncrement(e.target.checked)}
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          accentColor: "#059669",
+                        }}
+                      />
+                    </div>
+
+                    {autoIncrement && (
+                      <div style={{ marginTop: "8px" }}>
+                        <label
+                          style={{
+                            fontSize: "12px",
+                            color: "#6b7280",
+                            display: "block",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          Direction:
+                        </label>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            type="button"
+                            onClick={() => setRowDirection("forward")}
+                            style={{
+                              flex: 1,
+                              padding: "8px 12px",
+                              borderRadius: "6px",
+                              border: "2px solid",
+                              borderColor:
+                                rowDirection === "forward"
+                                  ? "#059669"
+                                  : "#d1d5db",
+                              backgroundColor:
+                                rowDirection === "forward"
+                                  ? "#d1fae5"
+                                  : "white",
+                              color:
+                                rowDirection === "forward"
+                                  ? "#065f46"
+                                  : "#6b7280",
+                              fontSize: "13px",
+                              fontWeight: "500",
+                              cursor: "pointer",
+                              transition: "all 0.2s",
+                            }}
+                          >
+                            ↓ Forward
+                            <br />
+                            <span style={{ fontSize: "11px", opacity: 0.8 }}>
+                              1A → 1B → 2A
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRowDirection("reverse")}
+                            style={{
+                              flex: 1,
+                              padding: "8px 12px",
+                              borderRadius: "6px",
+                              border: "2px solid",
+                              borderColor:
+                                rowDirection === "reverse"
+                                  ? "#059669"
+                                  : "#d1d5db",
+                              backgroundColor:
+                                rowDirection === "reverse"
+                                  ? "#d1fae5"
+                                  : "white",
+                              color:
+                                rowDirection === "reverse"
+                                  ? "#065f46"
+                                  : "#6b7280",
+                              fontSize: "13px",
+                              fontWeight: "500",
+                              cursor: "pointer",
+                              transition: "all 0.2s",
+                            }}
+                          >
+                            ↑ Reverse
+                            <br />
+                            <span style={{ fontSize: "11px", opacity: 0.8 }}>
+                              50B → 50A → 49B
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {autoIncrement &&
+                      rowNumber &&
+                      parseRowNumber(rowNumber) && (
+                        <div
+                          style={{
+                            marginTop: "12px",
+                            padding: "8px",
+                            backgroundColor: "#dbeafe",
+                            border: "1px solid #3b82f6",
+                            borderRadius: "6px",
+                            fontSize: "12px",
+                            color: "#1e40af",
+                          }}
+                        >
+                          <strong>Next row:</strong>{" "}
+                          {getNextRowNumber(rowNumber, rowDirection) ||
+                            "End of sequence"}
+                        </div>
+                      )}
+                  </div>
 
                   {jobType === "OTHER" && (
                     <IonItem>

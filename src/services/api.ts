@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // API configuration
 const API_CONFIG = {
-  baseURL: 'https://farm-server-02-961069822730.europe-west1.run.app/api',
+  baseURL: 'https://farm-server-02-production.up.railway.app/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
