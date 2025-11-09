@@ -16,7 +16,7 @@ export default defineConfig({
     setupFiles: './src/setupTests.ts',
   },
   build: {
-    chunkSizeWarningLimit: 1500, // Increase to 1MB
+    chunkSizeWarningLimit: 2000, // Increase to 1MB
     sourcemap: false, // disable global sourcemaps
     rollupOptions: {
       onwarn(warning, warn) {
