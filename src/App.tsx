@@ -41,6 +41,8 @@ import "./App.css";
 import "./theme/variables.css";
 import Sidebar from "./components/dashboard/Sidebar";
 import DashboardLayout from "./components/layout/DashboardLayout";
+import OfflineIndicator from './components/OfflineIndicator';
+
 
 setupIonicReact();
 
@@ -48,6 +50,7 @@ const App: React.FC = () => {
   return (
     <IonApp>
       <IonReactRouter>
+        <OfflineIndicator />
         <div className="flex h-screen bg-gray-50">
           {/* Sidebar - only show on certain routes */}
           <Route
