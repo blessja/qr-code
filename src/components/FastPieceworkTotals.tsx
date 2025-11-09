@@ -163,76 +163,145 @@ const PieceworkTotals: React.FC = () => {
     0
   );
 
-  const exportToPDF = () => {
-    const title =
-      viewMode === "fast"
-        ? "Fast Piecework Report"
-        : "Regular Piecework Report";
+// exportToPDF function for FastPieceworkTotals
 
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          h1 { color: #1f2937; margin-bottom: 10px; }
-          .meta { color: #6b7280; margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 12px; }
-          th { background-color: ${
-            viewMode === "fast" ? "#10b981" : "#3b82f6"
-          }; color: white; font-weight: 600; }
-          .text-center { text-align: center; }
-          .font-bold { font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <h1>${title}</h1>
-        <div class="meta">Generated: ${new Date().toLocaleString()}</div>
-        <div class="meta">Total Workers: ${totalWorkers} | Total Vines: ${totalVines.toLocaleString()}</div>
-        <table>
-          <thead>
+const exportToPDF = () => {
+  const title =
+    viewMode === "fast"
+      ? "Fast Piecework Report"
+      : "Regular Piecework Report";
+
+  const printContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { color: #1f2937; margin-bottom: 10px; }
+        .meta { color: #6b7280; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 12px; }
+        th { background-color: ${
+          viewMode === "fast" ? "#10b981" : "#3b82f6"
+        }; color: white; font-weight: 600; }
+        .text-center { text-align: center; }
+        .font-bold { font-weight: bold; }
+        
+        /* Print-specific styles */
+        @media print {
+          body { padding: 10px; }
+          .no-print { display: none; }
+        }
+        
+        /* Button styles */
+        .action-buttons {
+          margin: 20px 0;
+          display: flex;
+          gap: 10px;
+        }
+        .btn {
+          padding: 10px 20px;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+        }
+        .btn-print {
+          background-color: #059669;
+          color: white;
+        }
+        .btn-close {
+          background-color: #6b7280;
+          color: white;
+        }
+        .btn:hover {
+          opacity: 0.9;
+        }
+      </style>
+      <script>
+        // Prevent navigation issues
+        function safePrint() {
+          window.print();
+        }
+        
+        function safeClose() {
+          window.close();
+          // Fallback if window.close() doesn't work
+          setTimeout(function() {
+            if (!window.closed) {
+              window.location.href = 'about:blank';
+            }
+          }, 100);
+        }
+        
+        // Auto-focus on load
+        window.onload = function() {
+          document.body.focus();
+        };
+        
+        // Handle back button properly
+        window.onbeforeunload = function() {
+          return null; // Allow navigation
+        };
+      </script>
+    </head>
+    <body>
+      <div class="action-buttons no-print">
+        <button class="btn btn-print" onclick="safePrint()">🖨️ Print</button>
+        <button class="btn btn-close" onclick="safeClose()">✖ Close</button>
+      </div>
+      
+      <h1>${title}</h1>
+      <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+      <div class="meta">Total Workers: ${totalWorkers} | Total Vines: ${totalVines.toLocaleString()}</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Worker ID</th>
+            <th>Worker Name</th>
+            <th class="text-center">Total Vines</th>
+            <th>Job Types</th>
+            <th>Blocks Worked</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filteredWorkers
+            .map(
+              (worker) => `
             <tr>
-              <th>Worker ID</th>
-              <th>Worker Name</th>
-              <th class="text-center">Total Vines</th>
-              <th>Job Types</th>
-              <th>Blocks Worked</th>
+              <td>${worker.workerID}</td>
+              <td>${worker.workerName}</td>
+              <td class="text-center font-bold">${worker.totalVines}</td>
+              <td>${[...new Set(worker.rows.map((r) => r.jobType))].join(
+                ", "
+              )}</td>
+              <td>${[...new Set(worker.rows.map((r) => r.blockName))].join(
+                ", "
+              )}</td>
             </tr>
-          </thead>
-          <tbody>
-            ${filteredWorkers
-              .map(
-                (worker) => `
-              <tr>
-                <td>${worker.workerID}</td>
-                <td>${worker.workerName}</td>
-                <td class="text-center font-bold">${worker.totalVines}</td>
-                <td>${[...new Set(worker.rows.map((r) => r.jobType))].join(
-                  ", "
-                )}</td>
-                <td>${[...new Set(worker.rows.map((r) => r.blockName))].join(
-                  ", "
-                )}</td>
-              </tr>
-            `
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
+          `
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => printWindow.print(), 250);
-    }
-  };
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Don't auto-print, let user click the button
+    // This prevents navigation issues
+  } else {
+    // Fallback if popup is blocked
+    alert("Please allow popups to export the report");
+  }
+};
 
   return (
     <IonPage>

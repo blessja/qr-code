@@ -14,11 +14,10 @@ import {
   IonSelect,
   IonSelectOption,
   IonInput,
-  IonBadge,
   IonIcon,
+  IonModal,
 } from "@ionic/react";
-import { motion, AnimatePresence } from "framer-motion";
-import { checkmarkCircle, alertCircle, leaf, trendingUp } from "ionicons/icons";
+import { checkmarkCircle, alertCircle, leaf, swapHorizontal } from "ionicons/icons";
 import Header from "./Header";
 import Footer from "./Footer";
 import QRScanner from "./QrScanner";
@@ -45,78 +44,29 @@ const FastPiecework: React.FC = () => {
   const [formStep, setFormStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [successCount, setSuccessCount] = useState(0);
-  const [rowDirection, setRowDirection] = useState<"forward" | "reverse">(
-    "forward"
-  );
+  const [rowDirection, setRowDirection] = useState<"forward" | "reverse">("forward");
   const [autoIncrement, setAutoIncrement] = useState(true);
+  
+  // New states for worker swap
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapMode, setSwapMode] = useState(false);
+  const [originalWorkerID, setOriginalWorkerID] = useState("");
+  const [originalWorkerName, setOriginalWorkerName] = useState("");
 
   const history = useHistory();
+
   useEffect(() => {
-    // TEMP: mock data for local testing
     const mockBlocks = [
-      "Block 1",
-      "Block 2",
-      "Block 3",
-      "Block 4",
-      "Block 5",
-      "Block 6",
-      "Block 7",
-      "Block 8",
-      "Block 9",
-      "Block 10",
-      "Block 11",
-      "Block 12",
-      "Block 13",
-      "Block 14",
-      "Block 15",
-      "Block 16",
-      "Block 17",
-      "Block 18",
-      "Block 19",
+      "Block 1", "Block 2", "Block 3", "Block 4", "Block 5",
+      "Block 6", "Block 7", "Block 8", "Block 9", "Block 10",
+      "Block 11", "Block 12", "Block 13", "Block 14", "Block 15",
+      "Block 16", "Block 17", "Block 18", "Block 19",
     ];
     setBlocks(mockBlocks);
 
     const mockJobTypes = ["LEAF PICKING"];
     setJobTypes(mockJobTypes);
-
-    // If you want to use backend later, comment out mock and uncomment below
-    /*
-    fetch(`${config.apiBaseUrl}/blocks`)
-      .then((response) => response.json())
-      .then((data) => {
-        const sortedBlocks = [...data].sort((a, b) =>
-          a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
-        );
-        setBlocks(sortedBlocks);
-      })
-      .catch((error) => {
-        setAlertMessage(`Error fetching blocks: ${error.message}`);
-        setShowAlert(true);
-      });
-    */
   }, []);
-
-  // useEffect(() => {
-  //   fetch(apiBaseUrl + "/blocks")
-  //     .then((response) => response.json())
-  //     .then((data) => {
-  //       const sortedBlocks = [...data].sort((a, b) =>
-  //         a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
-  //       );
-  //       setBlocks(sortedBlocks);
-  //     })
-  //     .catch((error) => {
-  //       setAlertMessage(`Error fetching blocks: ${error.message}`);
-  //       setShowAlert(true);
-  //     });
-
-  //   fetch(apiBaseUrl + "/fast-piecework/job-types")
-  //     .then((response) => response.json())
-  //     .then((data) => setJobTypes(data))
-  //     .catch((error) => {
-  //       console.error("Error fetching job types:", error);
-  //     });
-  // }, []);
 
   const resetOnlyWorker = () => {
     setWorkerName("");
@@ -124,10 +74,12 @@ const FastPiecework: React.FC = () => {
     setErrorMessage("");
     setFormStep(0);
     setIsLoading(false);
+    setSwapMode(false);
+    setOriginalWorkerID("");
+    setOriginalWorkerName("");
   };
-  const parseRowNumber = (
-    row: string
-  ): { number: number; letter: string } | null => {
+
+  const parseRowNumber = (row: string): { number: number; letter: string } | null => {
     const match = row.match(/^(\d+)([A-Z])$/);
     if (!match) return null;
     return {
@@ -135,24 +87,20 @@ const FastPiecework: React.FC = () => {
       letter: match[2],
     };
   };
-  const getNextRowNumber = (
-    currentRow: string,
-    direction: "forward" | "reverse"
-  ): string => {
+
+  const getNextRowNumber = (currentRow: string, direction: "forward" | "reverse"): string => {
     const parsed = parseRowNumber(currentRow);
     if (!parsed) return "";
 
     const { number, letter } = parsed;
 
     if (direction === "forward") {
-      // Forward: 1A -> 1B -> 2A -> 2B
       if (letter === "A") {
         return `${number}B`;
       } else if (letter === "B") {
         return `${number + 1}A`;
       }
     } else {
-      // Reverse: 50B -> 50A -> 49B -> 49A
       if (letter === "B") {
         return `${number}A`;
       } else if (letter === "A") {
@@ -165,16 +113,14 @@ const FastPiecework: React.FC = () => {
     return currentRow;
   };
 
-  const handleScanSuccess = (workerData: {
-    workerName: string;
-    workerID: string;
-  }) => {
+  const handleScanSuccess = (workerData: { workerName: string; workerID: string }) => {
     setWorkerName(workerData.workerName);
     setWorkerID(workerData.workerID);
     setErrorMessage("");
     setFormStep(1);
     playSuccessSound();
   };
+
   const playSuccessSound = () => {
     successSound.play().catch((error) => {
       console.error("Sound playback error:", error);
@@ -183,7 +129,7 @@ const FastPiecework: React.FC = () => {
 
   const handleRowInputChange = (event: any) => {
     let input = event.target.value;
-    input = input.toUpperCase(); // Ensure uppercase
+    input = input.toUpperCase();
     setRowNumber(input);
     setErrorMessage("");
   };
@@ -199,16 +145,91 @@ const FastPiecework: React.FC = () => {
     return jobType === "OTHER" ? customJobType : jobType;
   };
 
+  const handleSwapWorker = () => {
+    // Store original worker details
+    setOriginalWorkerID(workerID);
+    setOriginalWorkerName(workerName);
+    setSwapMode(true);
+    setShowSwapModal(true);
+    
+    // Reset current worker to allow new scan
+    setWorkerName("");
+    setWorkerID("");
+    setFormStep(0);
+  };
+
+  const handleSwapScanSuccess = async (newWorkerData: { workerName: string; workerID: string }) => {
+    setShowSwapModal(false);
+    setIsLoading(true);
+    setErrorMessage("");
+
+    const effectiveJobType = getEffectiveJobType();
+
+    try {
+      const response = await fetch(apiBaseUrl + "/fast-piecework/swap-worker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          oldWorkerID: originalWorkerID,
+          newWorkerID: newWorkerData.workerID,
+          newWorkerName: newWorkerData.workerName,
+          blockName,
+          rowNumber,
+          jobType: effectiveJobType,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(data.message || "Worker swap failed");
+        setIsLoading(false);
+        
+        // Restore original worker on failure
+        setWorkerName(originalWorkerName);
+        setWorkerID(originalWorkerID);
+        setFormStep(1);
+        setSwapMode(false);
+      } else {
+        setToastMessage(
+          `✓ Swapped: ${originalWorkerName} → ${newWorkerData.workerName} on Row ${rowNumber}`
+        );
+        setShowToast(true);
+        
+        // Update to new worker
+        setWorkerName(newWorkerData.workerName);
+        setWorkerID(newWorkerData.workerID);
+        setSwapMode(false);
+        
+        // Auto-increment row if enabled
+        if (autoIncrement) {
+          const nextRow = getNextRowNumber(rowNumber, rowDirection);
+          setRowNumber(nextRow);
+        }
+
+        setFormStep(2);
+        
+        setTimeout(() => {
+          resetOnlyWorker();
+        }, 2000);
+      }
+    } catch (error) {
+      const errorMsg = "An error occurred during worker swap.";
+      setErrorMessage(errorMsg);
+      setIsLoading(false);
+      
+      // Restore original worker on error
+      setWorkerName(originalWorkerName);
+      setWorkerID(originalWorkerID);
+      setFormStep(1);
+      setSwapMode(false);
+    }
+  };
+
   const handleFastCheckIn = async () => {
     const effectiveJobType = getEffectiveJobType();
 
-    if (
-      !workerID ||
-      !workerName ||
-      !blockName ||
-      !rowNumber ||
-      !effectiveJobType
-    ) {
+    if (!workerID || !workerName || !blockName || !rowNumber || !effectiveJobType) {
       setErrorMessage("Please provide all required information.");
       return;
     }
@@ -217,20 +238,17 @@ const FastPiecework: React.FC = () => {
     setErrorMessage("");
 
     try {
-      const response = await fetch(
-        apiBaseUrl + "/fast-piecework/fast-checkin",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workerID,
-            workerName,
-            blockName,
-            rowNumber,
-            jobType: effectiveJobType,
-          }),
-        }
-      );
+      const response = await fetch(apiBaseUrl + "/fast-piecework/fast-checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workerID,
+          workerName,
+          blockName,
+          rowNumber,
+          jobType: effectiveJobType,
+        }),
+      });
 
       const data = await response.json();
 
@@ -244,7 +262,6 @@ const FastPiecework: React.FC = () => {
         setShowToast(true);
         setSuccessCount(successCount + 1);
 
-        // Auto-increment row number if enabled
         if (autoIncrement) {
           const nextRow = getNextRowNumber(rowNumber, rowDirection);
           setRowNumber(nextRow);
@@ -274,6 +291,9 @@ const FastPiecework: React.FC = () => {
     setIsLoading(false);
     setErrorMessage("");
     setSuccessCount(0);
+    setSwapMode(false);
+    setOriginalWorkerID("");
+    setOriginalWorkerName("");
   };
 
   return (
@@ -283,21 +303,12 @@ const FastPiecework: React.FC = () => {
 
         <div className="flex justify-center mt-4 px-4">
           <div className="bg-green-100 border-2 border-green-500 rounded-lg px-6 py-3 flex items-center gap-3">
-            <IonIcon
-              icon={checkmarkCircle}
-              style={{ fontSize: "24px", color: "#16a34a" }}
-            />
+            <IonIcon icon={checkmarkCircle} style={{ fontSize: "24px", color: "#16a34a" }} />
             <div>
-              <p
-                className="text-sm text-green-700 font-medium"
-                style={{ margin: 0 }}
-              >
+              <p className="text-sm text-green-700 font-medium" style={{ margin: 0 }}>
                 Workers Processed Today
               </p>
-              <p
-                className="text-2xl font-bold text-green-800"
-                style={{ margin: 0 }}
-              >
+              <p className="text-2xl font-bold text-green-800" style={{ margin: 0 }}>
                 {successCount}
               </p>
             </div>
@@ -312,14 +323,7 @@ const FastPiecework: React.FC = () => {
                 color: "white",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginBottom: "8px",
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
                 <IonIcon icon={leaf} style={{ fontSize: "24px" }} />
                 <IonCardTitle>Fast Piecework Entry</IonCardTitle>
               </div>
@@ -327,14 +331,7 @@ const FastPiecework: React.FC = () => {
                 Single-scan workflow for quick jobs like leaf picking
               </p>
 
-              <div
-                style={{
-                  marginTop: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
+              <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -352,17 +349,9 @@ const FastPiecework: React.FC = () => {
                   >
                     1
                   </div>
-                  <span style={{ marginLeft: "8px", fontSize: "14px" }}>
-                    Scan
-                  </span>
+                  <span style={{ marginLeft: "8px", fontSize: "14px" }}>Scan</span>
                 </div>
-                <div
-                  style={{
-                    width: "24px",
-                    height: "4px",
-                    backgroundColor: "#10b981",
-                  }}
-                ></div>
+                <div style={{ width: "24px", height: "4px", backgroundColor: "#10b981" }}></div>
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -380,9 +369,7 @@ const FastPiecework: React.FC = () => {
                   >
                     2
                   </div>
-                  <span style={{ marginLeft: "8px", fontSize: "14px" }}>
-                    Complete
-                  </span>
+                  <span style={{ marginLeft: "8px", fontSize: "14px" }}>Complete</span>
                 </div>
               </div>
             </IonCardHeader>
@@ -402,21 +389,9 @@ const FastPiecework: React.FC = () => {
                 >
                   <IonIcon
                     icon={alertCircle}
-                    style={{
-                      fontSize: "20px",
-                      color: "#ef4444",
-                      marginRight: "8px",
-                      marginTop: "2px",
-                    }}
+                    style={{ fontSize: "20px", color: "#ef4444", marginRight: "8px", marginTop: "2px" }}
                   />
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "14px",
-                      color: "#991b1b",
-                      fontWeight: "500",
-                    }}
-                  >
+                  <p style={{ margin: 0, fontSize: "14px", color: "#991b1b", fontWeight: "500" }}>
                     {errorMessage}
                   </p>
                 </div>
@@ -436,9 +411,7 @@ const FastPiecework: React.FC = () => {
                     >
                       <div style={{ fontSize: "14px", color: "#92400e" }}>
                         <strong>Current Job Setup:</strong>
-                        {getEffectiveJobType() && (
-                          <p>Job: {getEffectiveJobType()}</p>
-                        )}
+                        {getEffectiveJobType() && <p>Job: {getEffectiveJobType()}</p>}
                         {blockName && <p>Block: {blockName}</p>}
                         {rowNumber && <p>Next Row: {rowNumber}</p>}
                       </div>
@@ -466,35 +439,15 @@ const FastPiecework: React.FC = () => {
                       <div style={{ display: "flex", alignItems: "center" }}>
                         <IonIcon
                           icon={checkmarkCircle}
-                          style={{
-                            fontSize: "20px",
-                            color: "#059669",
-                            marginRight: "8px",
-                          }}
+                          style={{ fontSize: "20px", color: "#059669", marginRight: "8px" }}
                         />
-                        <h3
-                          style={{
-                            margin: 0,
-                            fontWeight: "500",
-                            color: "#065f46",
-                          }}
-                        >
+                        <h3 style={{ margin: 0, fontWeight: "500", color: "#065f46" }}>
                           Worker Ready
                         </h3>
                       </div>
-                      <div
-                        style={{
-                          marginTop: "8px",
-                          fontSize: "14px",
-                          color: "#065f46",
-                        }}
-                      >
-                        <p>
-                          <strong>Name:</strong> {workerName}
-                        </p>
-                        <p>
-                          <strong>ID:</strong> {workerID}
-                        </p>
+                      <div style={{ marginTop: "8px", fontSize: "14px", color: "#065f46" }}>
+                        <p><strong>Name:</strong> {workerName}</p>
+                        <p><strong>ID:</strong> {workerID}</p>
                       </div>
                       <IonButton
                         size="small"
@@ -510,13 +463,7 @@ const FastPiecework: React.FC = () => {
                   )}
 
                   {workerName && (
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        marginTop: "16px",
-                      }}
-                    >
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
                       <IonButton color="success" onClick={() => setFormStep(1)}>
                         Continue
                       </IonButton>
@@ -536,17 +483,20 @@ const FastPiecework: React.FC = () => {
                       marginBottom: "16px",
                     }}
                   >
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: "14px",
-                        color: "#065f46",
-                        fontWeight: "500",
-                      }}
-                    >
-                      ⚡ Quick Entry Mode: All vines in the row will be marked
-                      as completed with one click
-                    </p>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <p style={{ margin: 0, fontSize: "14px", color: "#065f46", fontWeight: "500" }}>
+                        ⚡ Quick Entry Mode
+                      </p>
+                      <IonButton
+                        size="small"
+                        fill="outline"
+                        color="warning"
+                        onClick={handleSwapWorker}
+                      >
+                        <IonIcon icon={swapHorizontal} slot="start" />
+                        Change Worker
+                      </IonButton>
+                    </div>
                   </div>
 
                   <IonItem>
@@ -563,6 +513,7 @@ const FastPiecework: React.FC = () => {
                       ))}
                     </IonSelect>
                   </IonItem>
+
                   <div
                     style={{
                       backgroundColor: "#f3f4f6",
@@ -581,24 +532,14 @@ const FastPiecework: React.FC = () => {
                         marginBottom: "12px",
                       }}
                     >
-                      <label
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: "500",
-                          color: "#374151",
-                        }}
-                      >
+                      <label style={{ fontSize: "14px", fontWeight: "500", color: "#374151" }}>
                         Auto-Increment Rows
                       </label>
                       <input
                         type="checkbox"
                         checked={autoIncrement}
                         onChange={(e) => setAutoIncrement(e.target.checked)}
-                        style={{
-                          width: "20px",
-                          height: "20px",
-                          accentColor: "#059669",
-                        }}
+                        style={{ width: "20px", height: "20px", accentColor: "#059669" }}
                       />
                     </div>
 
@@ -623,29 +564,16 @@ const FastPiecework: React.FC = () => {
                               padding: "8px 12px",
                               borderRadius: "6px",
                               border: "2px solid",
-                              borderColor:
-                                rowDirection === "forward"
-                                  ? "#059669"
-                                  : "#d1d5db",
-                              backgroundColor:
-                                rowDirection === "forward"
-                                  ? "#d1fae5"
-                                  : "white",
-                              color:
-                                rowDirection === "forward"
-                                  ? "#065f46"
-                                  : "#6b7280",
+                              borderColor: rowDirection === "forward" ? "#059669" : "#d1d5db",
+                              backgroundColor: rowDirection === "forward" ? "#d1fae5" : "white",
+                              color: rowDirection === "forward" ? "#065f46" : "#6b7280",
                               fontSize: "13px",
                               fontWeight: "500",
                               cursor: "pointer",
-                              transition: "all 0.2s",
                             }}
                           >
-                            ↓ Forward
-                            <br />
-                            <span style={{ fontSize: "11px", opacity: 0.8 }}>
-                              1A → 1B → 2A
-                            </span>
+                            ↓ Forward<br />
+                            <span style={{ fontSize: "11px", opacity: 0.8 }}>1A → 1B → 2A</span>
                           </button>
                           <button
                             type="button"
@@ -655,53 +583,20 @@ const FastPiecework: React.FC = () => {
                               padding: "8px 12px",
                               borderRadius: "6px",
                               border: "2px solid",
-                              borderColor:
-                                rowDirection === "reverse"
-                                  ? "#059669"
-                                  : "#d1d5db",
-                              backgroundColor:
-                                rowDirection === "reverse"
-                                  ? "#d1fae5"
-                                  : "white",
-                              color:
-                                rowDirection === "reverse"
-                                  ? "#065f46"
-                                  : "#6b7280",
+                              borderColor: rowDirection === "reverse" ? "#059669" : "#d1d5db",
+                              backgroundColor: rowDirection === "reverse" ? "#d1fae5" : "white",
+                              color: rowDirection === "reverse" ? "#065f46" : "#6b7280",
                               fontSize: "13px",
                               fontWeight: "500",
                               cursor: "pointer",
-                              transition: "all 0.2s",
                             }}
                           >
-                            ↑ Reverse
-                            <br />
-                            <span style={{ fontSize: "11px", opacity: 0.8 }}>
-                              50B → 50A → 49B
-                            </span>
+                            ↑ Reverse<br />
+                            <span style={{ fontSize: "11px", opacity: 0.8 }}>50B → 50A → 49B</span>
                           </button>
                         </div>
                       </div>
                     )}
-
-                    {autoIncrement &&
-                      rowNumber &&
-                      parseRowNumber(rowNumber) && (
-                        <div
-                          style={{
-                            marginTop: "12px",
-                            padding: "8px",
-                            backgroundColor: "#dbeafe",
-                            border: "1px solid #3b82f6",
-                            borderRadius: "6px",
-                            fontSize: "12px",
-                            color: "#1e40af",
-                          }}
-                        >
-                          <strong>Next row:</strong>{" "}
-                          {getNextRowNumber(rowNumber, rowDirection) ||
-                            "End of sequence"}
-                        </div>
-                      )}
                   </div>
 
                   {jobType === "OTHER" && (
@@ -739,31 +634,14 @@ const FastPiecework: React.FC = () => {
                     />
                   </IonItem>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginTop: "24px",
-                    }}
-                  >
-                    <IonButton
-                      fill="outline"
-                      onClick={() => {
-                        setFormStep(0);
-                        setErrorMessage("");
-                      }}
-                    >
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "24px" }}>
+                    <IonButton fill="outline" onClick={() => { setFormStep(0); setErrorMessage(""); }}>
                       Back
                     </IonButton>
                     <IonButton
                       color="success"
                       onClick={handleFastCheckIn}
-                      disabled={
-                        !blockName ||
-                        !rowNumber ||
-                        !getEffectiveJobType() ||
-                        isLoading
-                      }
+                      disabled={!blockName || !rowNumber || !getEffectiveJobType() || isLoading}
                     >
                       {isLoading ? "Processing..." : "Complete Row"}
                     </IonButton>
@@ -785,41 +663,13 @@ const FastPiecework: React.FC = () => {
                       margin: "0 auto 16px",
                     }}
                   >
-                    <IonIcon
-                      icon={checkmarkCircle}
-                      style={{ fontSize: "48px", color: "#059669" }}
-                    />
+                    <IonIcon icon={checkmarkCircle} style={{ fontSize: "48px", color: "#059669" }} />
                   </div>
-                  <h3
-                    style={{
-                      fontSize: "20px",
-                      fontWeight: "500",
-                      color: "#111827",
-                      margin: "0 0 4px",
-                    }}
-                  >
+                  <h3 style={{ fontSize: "20px", fontWeight: "500", color: "#111827", margin: "0 0 4px" }}>
                     Row Completed!
                   </h3>
-                  <p
-                    style={{
-                      color: "#6b7280",
-                      textAlign: "center",
-                      marginBottom: "16px",
-                    }}
-                  >
+                  <p style={{ color: "#6b7280", textAlign: "center", marginBottom: "16px" }}>
                     {workerName} finished {blockName}, Row {rowNumber}
-                  </p>
-                  <IonBadge color="success" style={{ fontSize: "14px" }}>
-                    {getEffectiveJobType()}
-                  </IonBadge>
-                  <p
-                    style={{
-                      color: "#059669",
-                      fontSize: "14px",
-                      marginTop: "16px",
-                    }}
-                  >
-                    Ready for next worker...
                   </p>
                 </div>
               )}
@@ -827,18 +677,47 @@ const FastPiecework: React.FC = () => {
           </IonCard>
         </div>
 
-        <div className="flex justify-center gap-4 mt-6 mb-6 px-4">
-          <IonButton fill="outline" onClick={() => history.push("/dashboard")}>
-            Dashboard
-          </IonButton>
-          <IonButton
-            color="success"
-            onClick={() => history.push("/fast-piecework-totals")}
-          >
-            <IonIcon icon={trendingUp} slot="start" />
-            View Totals
-          </IonButton>
-        </div>
+        {/* Swap Worker Modal */}
+        <IonModal isOpen={showSwapModal} onDidDismiss={() => setShowSwapModal(false)}>
+          <IonContent>
+            <div style={{ padding: "24px" }}>
+              <h2 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "16px" }}>
+                Scan New Worker
+              </h2>
+              <div
+                style={{
+                  backgroundColor: "#fff3cd",
+                  border: "1px solid #ffc107",
+                  borderRadius: "8px",
+                  padding: "12px",
+                  marginBottom: "16px",
+                }}
+              >
+                <p style={{ margin: 0, fontSize: "14px", color: "#856404" }}>
+                  <strong>Swapping out:</strong> {originalWorkerName} ({originalWorkerID})
+                </p>
+                <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#856404" }}>
+                  <strong>Row:</strong> {blockName} - {rowNumber}
+                </p>
+              </div>
+              <QRScanner onScanSuccess={handleSwapScanSuccess} />
+              <IonButton
+                expand="block"
+                fill="outline"
+                onClick={() => {
+                  setShowSwapModal(false);
+                  setWorkerName(originalWorkerName);
+                  setWorkerID(originalWorkerID);
+                  setFormStep(1);
+                  setSwapMode(false);
+                }}
+                style={{ marginTop: "16px" }}
+              >
+                Cancel
+              </IonButton>
+            </div>
+          </IonContent>
+        </IonModal>
 
         <IonAlert
           isOpen={showAlert}
