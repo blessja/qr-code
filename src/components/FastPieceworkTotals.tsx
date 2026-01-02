@@ -30,7 +30,7 @@ import Header from "./Header";
 import Footer from "./Footer";
 import { useHistory } from "react-router-dom";
 
-const apiBaseUrl = "https://farm-server-02-production.up.railway.app/api";
+const apiBaseUrl = "https://farm-server-02-production-b3d0.up.railway.app/api";
 
 interface WorkerRow {
   blockName: string;
@@ -163,145 +163,157 @@ const PieceworkTotals: React.FC = () => {
     0
   );
 
-// exportToPDF function for FastPieceworkTotals
-
 const exportToPDF = () => {
-  const title =
-    viewMode === "fast"
-      ? "Fast Piecework Report"
-      : "Regular Piecework Report";
+    const title =
+      viewMode === "fast"
+        ? "Fast Piecework Report - By Block"
+        : "Regular Piecework Report - By Block";
 
-  const printContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>${title}</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1 { color: #1f2937; margin-bottom: 10px; }
-        .meta { color: #6b7280; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 12px; }
-        th { background-color: ${
-          viewMode === "fast" ? "#10b981" : "#3b82f6"
-        }; color: white; font-weight: 600; }
-        .text-center { text-align: center; }
-        .font-bold { font-weight: bold; }
-        
-        /* Print-specific styles */
-        @media print {
-          body { padding: 10px; }
-          .no-print { display: none; }
-        }
-        
-        /* Button styles */
-        .action-buttons {
-          margin: 20px 0;
-          display: flex;
-          gap: 10px;
-        }
-        .btn {
-          padding: 10px 20px;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-        }
-        .btn-print {
-          background-color: #059669;
-          color: white;
-        }
-        .btn-close {
-          background-color: #6b7280;
-          color: white;
-        }
-        .btn:hover {
-          opacity: 0.9;
-        }
-      </style>
-      <script>
-        // Prevent navigation issues
-        function safePrint() {
-          window.print();
-        }
-        
-        function safeClose() {
-          window.close();
-          // Fallback if window.close() doesn't work
-          setTimeout(function() {
-            if (!window.closed) {
-              window.location.href = 'about:blank';
-            }
-          }, 100);
-        }
-        
-        // Auto-focus on load
-        window.onload = function() {
-          document.body.focus();
-        };
-        
-        // Handle back button properly
-        window.onbeforeunload = function() {
-          return null; // Allow navigation
-        };
-      </script>
-    </head>
-    <body>
-      <div class="action-buttons no-print">
-        <button class="btn btn-print" onclick="safePrint()">🖨️ Print</button>
-        <button class="btn btn-close" onclick="safeClose()">✖ Close</button>
-      </div>
-      
-      <h1>${title}</h1>
-      <div class="meta">Generated: ${new Date().toLocaleString()}</div>
-      <div class="meta">Total Workers: ${totalWorkers} | Total Vines: ${totalVines.toLocaleString()}</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Worker ID</th>
-            <th>Worker Name</th>
-            <th class="text-center">Total Vines</th>
-            <th>Job Types</th>
-            <th>Blocks Worked</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filteredWorkers
-            .map(
-              (worker) => `
-            <tr>
-              <td>${worker.workerID}</td>
-              <td>${worker.workerName}</td>
-              <td class="text-center font-bold">${worker.totalVines}</td>
-              <td>${[...new Set(worker.rows.map((r) => r.jobType))].join(
-                ", "
-              )}</td>
-              <td>${[...new Set(worker.rows.map((r) => r.blockName))].join(
-                ", "
-              )}</td>
-            </tr>
-          `
-            )
-            .join("")}
-        </tbody>
-      </table>
-    </body>
-    </html>
-  `;
+    // Group workers by block
+    interface BlockWorkerData {
+      workerID: string;
+      workerName: string;
+      vines: number;
+      rows: number;
+    }
 
-  const printWindow = window.open("", "_blank");
-  if (printWindow) {
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    
-    // Don't auto-print, let user click the button
-    // This prevents navigation issues
-  } else {
-    // Fallback if popup is blocked
-    alert("Please allow popups to export the report");
-  }
-};
+    interface BlockGroup {
+      blockName: string;
+      workers: BlockWorkerData[];
+      totalVines: number;
+      variety?: string;
+    }
+
+    const blockMap = new Map<string, BlockGroup>();
+
+    // Process each worker and their block completions
+    filteredWorkers.forEach((worker) => {
+      if (worker.blockCompletion && worker.blockCompletion.length > 0) {
+        worker.blockCompletion.forEach((completion) => {
+          if (!blockMap.has(completion.blockName)) {
+            blockMap.set(completion.blockName, {
+              blockName: completion.blockName,
+              workers: [],
+              totalVines: 0,
+              variety: completion.variety,
+            });
+          }
+
+          const block = blockMap.get(completion.blockName)!;
+          block.workers.push({
+            workerID: worker.workerID,
+            workerName: worker.workerName,
+            vines: completion.workerCompletedVines,
+            rows: completion.workerCompletedRows,
+          });
+          block.totalVines += completion.workerCompletedVines;
+        });
+      }
+    });
+
+    // Convert to array and sort blocks alphabetically
+    const blocks = Array.from(blockMap.values()).sort((a, b) =>
+      a.blockName.localeCompare(b.blockName)
+    );
+
+    // Sort workers within each block by ID (ascending: 2021, 2022, 2023...)
+    blocks.forEach((block) => {
+      block.workers.sort((a, b) => a.workerID.localeCompare(b.workerID));
+    });
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { color: #1f2937; margin-bottom: 10px; }
+          .meta { color: #6b7280; margin-bottom: 20px; font-size: 14px; }
+          .block-section { margin-bottom: 30px; page-break-inside: avoid; }
+          .block-header { 
+            background-color: ${viewMode === "fast" ? "#10b981" : "#3b82f6"}; 
+            color: white; 
+            padding: 12px; 
+            border-radius: 4px;
+            margin-bottom: 10px;
+          }
+          .block-title { margin: 0; font-size: 18px; font-weight: 600; }
+          .block-meta { margin: 4px 0 0 0; font-size: 12px; opacity: 0.9; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; font-size: 12px; }
+          th { background-color: #f3f4f6; color: #374151; font-weight: 600; }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .font-bold { font-weight: bold; }
+          .total-row { background-color: #fef3c7; font-weight: 600; }
+          @media print {
+            .block-section { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${title}</h1>
+        <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+        <div class="meta">Total Blocks: ${blocks.length} | Total Workers: ${totalWorkers} | Total Vines: ${totalVines.toLocaleString()}</div>
+        
+        ${blocks
+          .map(
+            (block) => `
+          <div class="block-section">
+            <div class="block-header">
+              <h2 class="block-title">${block.blockName}</h2>
+              <p class="block-meta">
+                ${block.variety ? `Variety: ${block.variety} | ` : ""}
+                Total Vines: ${block.totalVines.toLocaleString()} | 
+                Workers: ${block.workers.length}
+              </p>
+            </div>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 15%;">Worker ID</th>
+                  <th style="width: 35%;">Worker Name</th>
+                  <th class="text-center" style="width: 20%;">Rows Completed</th>
+                  <th class="text-right" style="width: 30%;">Vines</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${block.workers
+                  .map(
+                    (worker) => `
+                  <tr>
+                    <td>${worker.workerID}</td>
+                    <td>${worker.workerName}</td>
+                    <td class="text-center">${worker.rows}</td>
+                    <td class="text-right font-bold">${worker.vines.toLocaleString()}</td>
+                  </tr>
+                `
+                  )
+                  .join("")}
+                <tr class="total-row">
+                  <td colspan="3" class="text-right">Block Total:</td>
+                  <td class="text-right font-bold">${block.totalVines.toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `
+          )
+          .join("")}
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => printWindow.print(), 250);
+    }
+  };
 
   return (
     <IonPage>

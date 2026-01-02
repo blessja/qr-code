@@ -13,6 +13,7 @@ import MonitorClockInOut from "./pages/MonitorClockInOut";
 import ClockDashboard from "./pages/ClockInOutDashboard";
 import FastPiecework from "./components/FastPiecework";
 import FastPieceworkTotals from "./components/FastPieceworkTotals";
+import FastPieceworkManagement from "./components/FastPieceworkManagement";
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
 
@@ -54,7 +55,7 @@ const App: React.FC = () => {
         <div className="flex h-screen bg-gray-50">
           {/* Sidebar - only show on certain routes */}
           <Route
-            path="/(dashboard|home|checkin|checkout|workerTotalsPage|monitor-clockins|clocks|piecework|fast-piecework|fast-piecework-totals)"
+            path="/(dashboard|home|checkin|checkout|workerTotalsPage|monitor-clockins|clocks|piecework|fast-piecework|fast-piecework-totals|fast-piecework-management)"
             component={Sidebar}
           />
 
@@ -136,6 +137,11 @@ const App: React.FC = () => {
               <Route exact path="/fast-piecework-totals">
                 <div className="min-h-screen">
                   <FastPieceworkTotals />
+                </div>
+              </Route>
+              <Route exact path="/fast-piecework-management">
+                <div className="min-h-screen">
+                  <FastPieceworkManagement />
                 </div>
               </Route>
             </IonRouterOutlet>

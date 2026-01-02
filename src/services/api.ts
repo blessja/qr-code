@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // API configuration
 const API_CONFIG = {
-  baseURL: 'https://farm-server-02-production.up.railway.app/api',
+  baseURL: 'https://farm-server-02-production-b3d0.up.railway.app/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

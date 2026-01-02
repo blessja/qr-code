@@ -1,6 +1,6 @@
 
 const config = {
-    apiBaseUrl: "https://farm-server-02-961069822730.europe-west1.run.app/api",
+    apiBaseUrl: "https://farm-server-02-production-b3d0.up.railway.app/api",
   };
   
   export default config;

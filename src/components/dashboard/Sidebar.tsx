@@ -32,6 +32,8 @@ const Sidebar = () => {
     if (path === "/workerTotalsPage") return "workerTotalsPage";
     if (path === "/monitor-clockins") return "monitor";
     if (path === "/clocks") return "clocks";
+    if (path === "/fast-piecework") return "fast-piecework";
+    if (path === "/fast-piecework-management") return "piecework";
     if (path.includes("/piecework")) return "piecework";
     return "dashboard";
   };
@@ -86,6 +88,12 @@ const Sidebar = () => {
       icon: <Leaf size={20} />, // or use an Ionicon
       label: "Fast Piecework",
       path: "/fast-piecework",
+    },
+    {
+      id: "piecework",
+      icon: <FolderIcon size={20} />,
+      label: "Fast Piecework Management",
+      path: "/fast-piecework-management",
     },
   ];
 
