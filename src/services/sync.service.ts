@@ -1,25 +1,29 @@
-// src/app/services/sync.service.ts
-import { Injectable } from '@angular/core';
-import { Storage } from '@ionic/storage-angular';
-import { HttpClient } from '@angular/common/http';
+// src/services/sync.service.ts
+import { Preferences } from '@capacitor/preferences';
 import { Network } from '@capacitor/network';
 import { v4 as uuidv4 } from 'uuid';
 
-@Injectable({ providedIn: 'root' })
-export class SyncService {
-  private _storage: Storage | null = null;
+const getQueue = async (key: string): Promise<any[]> => {
+  const { value } = await Preferences.get({ key });
+  return value ? JSON.parse(value) : [];
+};
 
-  constructor(private storage: Storage, private http: HttpClient) {
-    this.init();
+const setQueue = async (key: string, data: any[]) => {
+  await Preferences.set({ key, value: JSON.stringify(data) });
+};
+
+export class SyncService {
+  constructor() {
     this.listenToNetwork();
   }
 
-  async init() {
-    this._storage = await this.storage.create();
-  }
+  async saveOffline(
+    type: 'clockin' | 'clockout' | 'stock',
+    data: any
+  ) {
+    const syncId = uuidv4();
+    const key = `${type}_queue`;
 
-  async saveOffline(type: 'clockin' | 'clockout' | 'stock', data: any) {
-    const syncId = uuidv4(); // unique ID
     const entry = {
       syncId,
       ...data,
@@ -27,10 +31,10 @@ export class SyncService {
       synced: false,
     };
 
-    const key = `${type}_queue`;
-    const existing = (await this._storage?.get(key)) || [];
+    const existing = await getQueue(key);
     existing.push(entry);
-    await this._storage?.set(key, existing);
+
+    await setQueue(key, existing);
   }
 
   async syncAll() {
@@ -41,28 +45,37 @@ export class SyncService {
 
   private async syncType(type: string, url: string) {
     const key = `${type}_queue`;
-    const queue = (await this._storage?.get(key)) || [];
+    const queue = await getQueue(key);
+
     if (queue.length === 0) return;
 
-    const unsynced = queue.filter((item: any) => !item.synced);
+    const unsynced = queue.filter(item => !item.synced);
     if (unsynced.length === 0) return;
 
     try {
-      const response: any[] = await this.http.post<any[]>(url, unsynced).toPromise();
-      const updated = queue.map((item: any) => {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(unsynced),
+      });
+
+      const response: any[] = await res.json();
+
+      const updated = queue.map(item => {
         const result = response.find(r => r.syncId === item.syncId);
         return result?.status === 'success' || result?.status === 'duplicate'
           ? { ...item, synced: true }
           : item;
       });
-      await this._storage?.set(key, updated);
+
+      await setQueue(key, updated);
     } catch (err) {
       console.error(`Sync failed for ${type}`, err);
     }
   }
 
   private listenToNetwork() {
-    Network.addListener('networkStatusChange', async (status) => {
+    Network.addListener('networkStatusChange', async status => {
       if (status.connected) {
         console.log('Back online, syncing...');
         await this.syncAll();
